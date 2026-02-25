@@ -186,15 +186,45 @@ def _display_paragraphs(report) -> None:
     console.print()
 
 
+def _display_highlights(report) -> None:
+    """Display matched highlights grouped by scorer."""
+    has_any = False
+    for result in report.scores:
+        if not result.highlights:
+            continue
+        if not has_any:
+            console.print("[bold]Highlights:[/bold]")
+            has_any = True
+        console.print(f"  [cyan]{result.name}:[/cyan]")
+        for h in result.highlights[:10]:  # cap at 10 per scorer
+            display_text = h.text[:50]
+            console.print(f'    [{h.category:<15}] "{display_text}"  [dim](pos {h.position})[/dim]')
+    if has_any:
+        console.print()
+
+
+def _report_to_dict_with_highlights(report, source: str | None = None) -> dict:
+    """Convert a QualityReport to a JSON-serializable dict, including highlights."""
+    data = _report_to_dict(report, source)
+    for result in report.scores:
+        if result.name in data["dimensions"]:
+            data["dimensions"][result.name]["highlights"] = [
+                {"text": h.text, "category": h.category, "position": h.position}
+                for h in result.highlights
+            ]
+    return data
+
+
 @main.command()
 @click.argument("source")
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
+@click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
 def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
-          profile: str | None):
+          highlights: bool, profile: str | None):
     """Score content quality from a URL or file.
 
     SOURCE can be a URL (https://...) or a file path (- for stdin).
@@ -209,9 +239,14 @@ def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
     if as_json:
         import json
 
-        click.echo(json.dumps(_report_to_dict(report), indent=2))
+        if highlights:
+            click.echo(json.dumps(_report_to_dict_with_highlights(report), indent=2))
+        else:
+            click.echo(json.dumps(_report_to_dict(report), indent=2))
     else:
         _display_report(report, source=label)
+        if highlights:
+            _display_highlights(report)
         if paragraphs:
             _display_paragraphs(report)
 

@@ -2,7 +2,7 @@
 
 import pytest
 from distill import Pipeline
-from distill.scorer import list_scorers, get_scorer
+from distill.scorer import ScoreResult, list_scorers, get_scorer
 
 
 # --- Fixtures ---
@@ -298,3 +298,54 @@ class TestRegistry:
     def test_unknown_scorer_raises(self):
         with pytest.raises(KeyError):
             get_scorer("nonexistent")
+
+
+class TestHighlights:
+    def test_highlights_populated(self):
+        """Substance and epistemic scorers should produce highlights on known content."""
+        substance = get_scorer("substance")
+        epistemic = get_scorer("epistemic")
+
+        sub_result = substance.score(EXPERT_CONTENT)
+        epi_result = epistemic.score(EXPERT_CONTENT)
+
+        assert len(sub_result.highlights) > 0
+        assert len(epi_result.highlights) > 0
+
+    def test_highlight_categories(self):
+        """Filler phrases produce 'filler' category, specificity markers produce 'specificity'."""
+        substance = get_scorer("substance")
+
+        # AI slop has filler phrases
+        slop_result = substance.score(AI_SLOP)
+        filler_highlights = [h for h in slop_result.highlights if h.category == "filler"]
+        assert len(filler_highlights) > 0
+
+        # Expert content has specificity markers
+        expert_result = substance.score(EXPERT_CONTENT)
+        spec_highlights = [h for h in expert_result.highlights if h.category == "specificity"]
+        assert len(spec_highlights) > 0
+
+    def test_epistemic_highlight_categories(self):
+        """Epistemic scorer produces correct categories."""
+        epistemic = get_scorer("epistemic")
+
+        expert_result = epistemic.score(EXPERT_CONTENT)
+        categories = {h.category for h in expert_result.highlights}
+        assert "qualification" in categories or "reasoning" in categories
+
+    def test_highlights_empty_by_default(self):
+        """ScoreResult.highlights defaults to empty list (backward compat)."""
+        result = ScoreResult(name="test", score=0.5)
+        assert result.highlights == []
+
+    def test_highlight_positions_valid(self):
+        """Position values should be within text length bounds."""
+        substance = get_scorer("substance")
+        result = substance.score(EXPERT_CONTENT)
+
+        text_len = len(EXPERT_CONTENT)
+        for h in result.highlights:
+            assert 0 <= h.position < text_len, (
+                f"Position {h.position} out of bounds for text length {text_len}"
+            )

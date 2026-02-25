@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
-from distill.scorer import ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 
 # --- Pattern definitions ---
@@ -110,6 +110,18 @@ _generic_start_re = _compile_patterns(GENERIC_STARTERS)
 
 def _count_matches(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
+
+
+def _find_matches(
+    patterns: list[re.Pattern], text: str, category: str
+) -> list[MatchHighlight]:
+    matches = []
+    for p in patterns:
+        for m in p.finditer(text):
+            matches.append(MatchHighlight(
+                text=m.group(), category=category, position=m.start()
+            ))
+    return matches
 
 
 def _sentence_split(text: str) -> list[str]:
@@ -245,10 +257,19 @@ class SubstanceScorer(Scorer):
 
         score = max(0.0, min(1.0, score))
 
+        # Collect highlights
+        highlights = (
+            _find_matches(_filler_re, text, "filler")
+            + _find_matches(_hedge_re, text, "hedge")
+            + _find_matches(_specific_re, text, "specificity")
+        )
+        highlights.sort(key=lambda h: h.position)
+
         return ScoreResult(
             name=self.name,
             score=score,
             explanation=self._explain(score, filler_count, specific_count, hedge_count),
+            highlights=highlights,
             details={
                 "filler_count": filler_count,
                 "hedge_count": hedge_count,

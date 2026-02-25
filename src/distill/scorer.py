@@ -8,6 +8,15 @@ from typing import ClassVar
 
 
 @dataclass
+class MatchHighlight:
+    """A matched phrase found during scoring."""
+
+    text: str          # the matched phrase
+    category: str      # e.g. "filler", "specificity", "qualification", "overconfidence"
+    position: int      # char offset in source text
+
+
+@dataclass
 class ScoreResult:
     """Result from a single scorer."""
 
@@ -15,6 +24,7 @@ class ScoreResult:
     score: float  # 0.0 (low quality) to 1.0 (high quality)
     details: dict = field(default_factory=dict)
     explanation: str = ""
+    highlights: list[MatchHighlight] = field(default_factory=list)
 
     def __post_init__(self):
         self.score = max(0.0, min(1.0, self.score))

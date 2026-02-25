@@ -50,6 +50,8 @@ distill score article.txt
 cat article.txt | distill score -
 distill score --json https://example.com/article
 distill score --paragraphs https://example.com/article
+distill score --highlights https://example.com/article
+distill score --highlights --json https://example.com/article
 distill score --profile technical article.txt
 distill batch url1 url2 url3
 distill batch --from-file urls.txt
@@ -93,7 +95,7 @@ To add a new scorer:
 
 ### Features
 - [ ] API/library-first improvements (better programmatic interface)
-- [ ] Explainability: highlight actual matched passages, not just counts
+- [x] Explainability: highlight actual matched passages (`--highlights` flag)
 - [ ] Export to CSV/JSON for analysis (partially done via batch --json)
 - [ ] Browser extension reference implementation
 - [ ] Comparative feedback system (A/B "which is better?" — harder to game)

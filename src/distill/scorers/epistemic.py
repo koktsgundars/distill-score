@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
-from distill.scorer import ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 # Specific hedges — acknowledging concrete limitations (GOOD)
 SPECIFIC_QUALIFICATIONS = [
@@ -109,6 +109,18 @@ def _count(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
 
 
+def _find_matches(
+    patterns: list[re.Pattern], text: str, category: str
+) -> list[MatchHighlight]:
+    matches = []
+    for p in patterns:
+        for m in p.finditer(text):
+            matches.append(MatchHighlight(
+                text=m.group(), category=category, position=m.start()
+            ))
+    return matches
+
+
 @register
 class EpistemicScorer(Scorer):
     """Measures intellectual honesty — nuance, qualifications, reasoning vs overconfidence."""
@@ -184,12 +196,21 @@ class EpistemicScorer(Scorer):
 
         score = max(0.0, min(1.0, score))
 
+        # Collect highlights
+        highlights = (
+            _find_matches(_qualification_re, text, "qualification")
+            + _find_matches(_overconfidence_re, text, "overconfidence")
+            + _find_matches(_reasoning_re, text, "reasoning")
+        )
+        highlights.sort(key=lambda h: h.position)
+
         return ScoreResult(
             name=self.name,
             score=score,
             explanation=self._explain(
                 score, qualification_count, overconfidence_count, reasoning_count
             ),
+            highlights=highlights,
             details={
                 "qualification_count": qualification_count,
                 "overconfidence_count": overconfidence_count,
