@@ -167,6 +167,127 @@ class TestCalibration:
         assert gap > 0.25, f"Expert-slop gap ({gap:.3f}) should be > 0.25"
 
 
+MULTI_PARAGRAPH = """
+We migrated our payment service from a monolith to a separate deployment in Q3 2024.
+Latency dropped from p99 of 340ms to 95ms, but we hit an unexpected issue: our
+connection pool was sized for the monolith's traffic patterns (200 concurrent
+connections shared across 15 services), and the isolated service only needed 30.
+The oversized pool was actually masking a connection leak in our retry logic.
+
+In today's rapidly evolving digital landscape, it's important to understand the
+key factors that drive success in software development. Whether you're a seasoned
+professional or just starting out, there are several best practices you should
+keep in mind. First and foremost, code quality is essential. This means writing
+clean, maintainable code that follows established patterns.
+
+The tradeoff worth noting: our deployment complexity increased significantly.
+We went from one CI pipeline to three, and debugging cross-service issues now
+requires correlating logs across systems. For teams smaller than ours (we have
+6 backend engineers), I'd honestly recommend staying with the monolith until
+the pain is concrete and measurable, not theoretical.
+"""
+
+SHORT_PARAGRAPHS = """
+This is short.
+
+Also short.
+
+Too brief to score.
+"""
+
+
+class TestParagraphs:
+    def test_paragraph_breakdown(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH, include_paragraphs=True)
+
+        assert len(report.paragraph_scores) > 0
+        for ps in report.paragraph_scores:
+            assert 0.0 <= ps.overall_score <= 1.0
+            assert ps.word_count >= 30
+            assert len(ps.text_preview) > 0
+
+    def test_short_paragraphs_skipped(self):
+        pipeline = Pipeline()
+        report = pipeline.score(SHORT_PARAGRAPHS, include_paragraphs=True)
+
+        assert len(report.paragraph_scores) == 0
+
+    def test_paragraph_scores_populated(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH, include_paragraphs=True)
+
+        for ps in report.paragraph_scores:
+            assert len(ps.scores) == len(report.scores)
+            for sr in ps.scores:
+                assert 0.0 <= sr.score <= 1.0
+
+    def test_paragraphs_off_by_default(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH)
+        assert report.paragraph_scores == []
+
+
+class TestBatch:
+    def test_score_batch(self):
+        pipeline = Pipeline()
+        texts = [("expert", EXPERT_CONTENT), ("slop", AI_SLOP)]
+        results = pipeline.score_batch(texts)
+
+        assert len(results) == 2
+        assert results[0][0] == "expert"
+        assert results[1][0] == "slop"
+        assert isinstance(results[0][1].overall_score, float)
+
+    def test_batch_preserves_individual_scores(self):
+        pipeline = Pipeline()
+        texts = [("expert", EXPERT_CONTENT), ("slop", AI_SLOP)]
+        batch_results = pipeline.score_batch(texts)
+
+        individual_expert = pipeline.score(EXPERT_CONTENT)
+        individual_slop = pipeline.score(AI_SLOP)
+
+        assert abs(batch_results[0][1].overall_score - individual_expert.overall_score) < 0.001
+        assert abs(batch_results[1][1].overall_score - individual_slop.overall_score) < 0.001
+
+
+class TestProfiles:
+    def test_profile_applies_weights(self):
+        """Profile should change scoring behavior vs default."""
+        default_pipeline = Pipeline()
+        technical_pipeline = Pipeline(profile="technical")
+
+        default_report = default_pipeline.score(EXPERT_CONTENT)
+        technical_report = technical_pipeline.score(EXPERT_CONTENT)
+
+        # Scores should differ because weights differ
+        assert default_report.overall_score != technical_report.overall_score
+
+    def test_explicit_weights_override_profile(self):
+        """Explicit weights should take priority over profile weights."""
+        # Use news profile but override epistemic weight
+        pipeline = Pipeline(profile="news", weights={"epistemic": 0.01})
+        report = pipeline.score(EXPERT_CONTENT)
+
+        # With epistemic nearly zeroed, result should differ from pure news profile
+        news_pipeline = Pipeline(profile="news")
+        news_report = news_pipeline.score(EXPERT_CONTENT)
+
+        assert abs(report.overall_score - news_report.overall_score) > 0.01
+
+    def test_list_profiles(self):
+        from distill.profiles import list_profiles
+        profiles = list_profiles()
+        assert "default" in profiles
+        assert "technical" in profiles
+        assert "news" in profiles
+        assert "opinion" in profiles
+
+    def test_unknown_profile_raises(self):
+        with pytest.raises(KeyError):
+            Pipeline(profile="nonexistent")
+
+
 class TestRegistry:
     def test_list_scorers(self):
         scorers = list_scorers()

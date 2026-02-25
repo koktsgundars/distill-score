@@ -11,7 +11,8 @@ The philosophy: we don't care who wrote it, we care whether it's worth reading.
 ```
 src/distill/
 ├── scorer.py          # Base Scorer ABC + registry (register/get_scorer/list_scorers)
-├── pipeline.py        # Pipeline orchestrates scorers → QualityReport
+├── pipeline.py        # Pipeline orchestrates scorers → QualityReport + ParagraphScore
+├── profiles.py        # Scorer profiles (weight presets for content types)
 ├── cli.py             # Click CLI with Rich output
 ├── scorers/           # Pluggable scorer implementations
 │   ├── substance.py   # Information density vs filler (heuristic, no ML)
@@ -48,6 +49,12 @@ distill score https://example.com/article
 distill score article.txt
 cat article.txt | distill score -
 distill score --json https://example.com/article
+distill score --paragraphs https://example.com/article
+distill score --profile technical article.txt
+distill batch url1 url2 url3
+distill batch --from-file urls.txt
+distill batch --json --profile news url1 url2
+distill profiles
 distill demo
 distill list
 ```
@@ -74,22 +81,25 @@ To add a new scorer:
 
 ## Backlog
 
-### Calibration (do first)
-- [ ] Run `distill score --json` against 20-30 real URLs (known good vs bad) to find scoring gaps
-- [ ] Tune substance scorer filler phrase list based on real-world results
-- [ ] Tune epistemic scorer pattern coverage based on real-world results
+### Completed
+- [x] Calibration: wider dynamic range, depth bonuses, new patterns
+- [x] Batch scoring mode
+- [x] Per-paragraph breakdown
+- [x] Configurable scorer profiles
 
 ### New Scorers
-- [ ] Originality scorer (semantic similarity against reference corpus, requires `[ml]`)
+- [ ] Originality scorer (semantic similarity, requires `[ml]`)
 - [ ] Source authority scorer (domain reputation, author signals)
 
 ### Features
-- [ ] Configurable scorer profiles (e.g., "technical", "news", "opinion")
-- [ ] Batch scoring mode for processing multiple URLs
-- [ ] Export to CSV/JSON for analysis
+- [ ] API/library-first improvements (better programmatic interface)
+- [ ] Explainability: highlight actual matched passages, not just counts
+- [ ] Export to CSV/JSON for analysis (partially done via batch --json)
 - [ ] Browser extension reference implementation
+- [ ] Comparative feedback system (A/B "which is better?" — harder to game)
+- [ ] Public calibration dashboard with well-known URL scores
 
 ### Infrastructure
 - [ ] GitHub Actions CI (pytest + ruff)
 - [ ] PyPI publishing setup
-- [ ] Add examples/ with sample scored content
+- [ ] Curated calibration corpus (ground truth maintained by us, not users)

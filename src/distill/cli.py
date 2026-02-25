@@ -91,65 +91,208 @@ def main():
     pass
 
 
-@main.command()
-@click.argument("source")
-@click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def score(source: str, scorers: str | None, as_json: bool):
-    """Score content quality from a URL or file.
+def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str]:
+    """Resolve a source (URL, file path, or '-' for stdin) to (label, text).
 
-    SOURCE can be a URL (https://...) or a file path (- for stdin).
+    Returns:
+        Tuple of (label, text content).
+
+    Raises:
+        SystemExit: If the source cannot be resolved.
     """
-    scorer_names = scorers.split(",") if scorers else None
-
-    # Get text
     if source == "-":
-        text = sys.stdin.read()
-        label = "stdin"
+        return "stdin", sys.stdin.read()
     elif source.startswith(("http://", "https://")):
         from distill.extractors import extract_from_url
 
-        console.print(f"[dim]Fetching {source}...[/dim]")
+        if not quiet:
+            console.print(f"[dim]Fetching {source}...[/dim]")
         try:
             extracted = extract_from_url(source)
-            text = extracted["text"]
-            label = extracted.get("title", source)
+            return extracted.get("title", source), extracted["text"]
         except Exception as e:
             console.print(f"[red]Error fetching URL: {e}[/red]")
             raise SystemExit(1)
     else:
         try:
             with open(source) as f:
-                text = f.read()
-            label = source
+                return source, f.read()
         except FileNotFoundError:
             console.print(f"[red]File not found: {source}[/red]")
             raise SystemExit(1)
 
-    # Score
-    pipeline = Pipeline(scorers=scorer_names)
-    report = pipeline.score(text)
+
+def _report_to_dict(report, source: str | None = None) -> dict:
+    """Convert a QualityReport to a JSON-serializable dict."""
+    data: dict = {}
+    if source is not None:
+        data["source"] = source
+    data.update({
+        "overall_score": round(report.overall_score, 3),
+        "grade": report.grade,
+        "label": report.label,
+        "word_count": report.word_count,
+        "dimensions": {
+            r.name: {
+                "score": round(r.score, 3),
+                "explanation": r.explanation,
+                "details": r.details,
+            }
+            for r in report.scores
+        },
+    })
+    if report.paragraph_scores:
+        data["paragraphs"] = [
+            {
+                "index": ps.index,
+                "preview": ps.text_preview,
+                "overall_score": round(ps.overall_score, 3),
+                "word_count": ps.word_count,
+                "dimensions": {
+                    r.name: round(r.score, 3) for r in ps.scores
+                },
+            }
+            for ps in report.paragraph_scores
+        ]
+    return data
+
+
+def _display_paragraphs(report) -> None:
+    """Display strongest and weakest paragraph sections."""
+    if not report.paragraph_scores:
+        console.print("[dim]No paragraphs long enough to score individually.[/dim]\n")
+        return
+
+    sorted_paras = sorted(report.paragraph_scores, key=lambda p: p.overall_score, reverse=True)
+    top = sorted_paras[:3]
+    bottom = sorted_paras[-3:] if len(sorted_paras) > 3 else []
+    # Remove overlap if fewer than 6 paragraphs
+    bottom = [p for p in bottom if p not in top]
+
+    def _para_row(ps) -> str:
+        dims = "  ".join(f"{r.name[:3]}={r.score:.2f}" for r in ps.scores)
+        preview = ps.text_preview.replace("\n", " ")
+        return f'  \u00b6{ps.index + 1:<3} "{preview[:55]:<55}"  {ps.overall_score:.2f}  {dims}'
+
+    console.print("[bold green]Strongest sections:[/bold green]")
+    for ps in top:
+        console.print(_para_row(ps))
+
+    if bottom:
+        console.print("\n[bold red]Weakest sections:[/bold red]")
+        for ps in reversed(bottom):
+            console.print(_para_row(ps))
+
+    console.print()
+
+
+@main.command()
+@click.argument("source")
+@click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
+@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
+              default=None)
+def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
+          profile: str | None):
+    """Score content quality from a URL or file.
+
+    SOURCE can be a URL (https://...) or a file path (- for stdin).
+    """
+    scorer_names = scorers.split(",") if scorers else None
+
+    label, text = _resolve_source(source)
+
+    pipeline = Pipeline(scorers=scorer_names, profile=profile)
+    report = pipeline.score(text, include_paragraphs=paragraphs)
 
     if as_json:
         import json
 
-        data = {
-            "overall_score": round(report.overall_score, 3),
-            "grade": report.grade,
-            "label": report.label,
-            "word_count": report.word_count,
-            "dimensions": {
-                r.name: {
-                    "score": round(r.score, 3),
-                    "explanation": r.explanation,
-                    "details": r.details,
-                }
-                for r in report.scores
-            },
-        }
-        click.echo(json.dumps(data, indent=2))
+        click.echo(json.dumps(_report_to_dict(report), indent=2))
     else:
         _display_report(report, source=label)
+        if paragraphs:
+            _display_paragraphs(report)
+
+
+@main.command()
+@click.argument("sources", nargs=-1)
+@click.option("--from-file", "from_file", type=click.Path(exists=True),
+              help="Read sources from a file (one per line)")
+@click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
+              default=None)
+def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, as_json: bool,
+          profile: str | None):
+    """Score multiple sources and compare them.
+
+    Accepts multiple URLs or file paths as arguments.
+    """
+    all_sources = list(sources)
+    if from_file:
+        with open(from_file) as f:
+            all_sources.extend(line.strip() for line in f if line.strip())
+
+    if not all_sources:
+        console.print("[red]No sources provided. Pass URLs/files as arguments or use --from-file.[/red]")
+        raise SystemExit(1)
+
+    scorer_names = scorers.split(",") if scorers else None
+
+    # Resolve all sources
+    texts: list[tuple[str, str]] = []
+    source_keys: list[str] = []
+    for src in all_sources:
+        label, text = _resolve_source(src)
+        texts.append((label, text))
+        source_keys.append(src)
+
+    # Score
+    pipeline = Pipeline(scorers=scorer_names, profile=profile)
+    results = pipeline.score_batch(texts)
+
+    if as_json:
+        import json
+
+        data = [
+            _report_to_dict(report, source=source_keys[i])
+            for i, (label, report) in enumerate(results)
+        ]
+        click.echo(json.dumps(data, indent=2))
+    else:
+        # Show individual reports
+        for label, report in results:
+            _display_report(report, source=label)
+
+        # Ranked summary table
+        ranked = sorted(
+            [(source_keys[i], label, report) for i, (label, report) in enumerate(results)],
+            key=lambda x: x[2].overall_score,
+            reverse=True,
+        )
+
+        table = Table(title="Ranked Summary", show_header=True, header_style="bold")
+        table.add_column("Rank", style="bold", justify="right", width=4)
+        table.add_column("Source", max_width=40)
+        table.add_column("Overall", justify="right")
+        table.add_column("Grade", justify="center")
+        for sr in results[0][1].scores:
+            table.add_column(sr.name.title(), justify="right")
+
+        for rank, (src, label, report) in enumerate(ranked, 1):
+            row = [
+                str(rank),
+                src[:40],
+                f"{report.overall_score:.3f}",
+                report.grade,
+            ]
+            for sr in report.scores:
+                row.append(f"{sr.score:.3f}")
+            table.add_row(*row)
+
+        console.print(table)
 
 
 @main.command(name="list")
@@ -162,6 +305,21 @@ def list_scorers():
     table.add_column("Description")
 
     for name, desc in _list().items():
+        table.add_row(name, desc)
+
+    console.print(table)
+
+
+@main.command()
+def profiles():
+    """List available scorer profiles."""
+    from distill.profiles import list_profiles as _list_profiles
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Profile", style="cyan")
+    table.add_column("Description")
+
+    for name, desc in _list_profiles().items():
         table.add_row(name, desc)
 
     console.print(table)
