@@ -16,3 +16,4 @@ htmlcov/
 *.so
 .DS_Store
 .claude/settings.local.json
+CLAUDE.md

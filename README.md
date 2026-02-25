@@ -62,6 +62,12 @@ cat article.txt | distill score -
 # JSON output for programmatic use
 distill score --json https://example.com/article
 
+# See which phrases matched each scoring dimension
+distill score --highlights https://example.com/article
+
+# Per-paragraph breakdown (strongest/weakest sections)
+distill score --paragraphs https://example.com/article
+
 # Use specific scorers only
 distill score -s substance,epistemic https://example.com/article
 

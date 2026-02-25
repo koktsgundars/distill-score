@@ -14,7 +14,7 @@ def extract_from_url(url: str, timeout: float = 15.0) -> dict:
     """
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (compatible; Distill/0.1; +https://github.com/YOUR_USERNAME/distill)"
+            "Mozilla/5.0 (compatible; Distill/0.1; +https://github.com/koktsgundars/distill-score)"
         ),
     }
 
