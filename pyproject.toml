@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "distill-score"
+version = "0.1.0"
+description = "Content quality scoring toolkit. Separates signal from noise."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Gundars" }]
+keywords = ["content-quality", "nlp", "scoring", "signal", "noise"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+    "click>=8.0",
+    "rich>=13.0",
+    "httpx>=0.25",
+    "readability-lxml>=0.8",
+    "lxml-html-clean>=0.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+]
+ml = [
+    "sentence-transformers>=2.0",
+    "numpy>=1.24",
+]
+
+[project.scripts]
+distill = "distill.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/distill"
+Repository = "https://github.com/YOUR_USERNAME/distill"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/distill"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

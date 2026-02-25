@@ -1,0 +1,243 @@
+"""Substance density scorer.
+
+Measures the ratio of concrete, specific, informative content to filler.
+High-substance content contains specific claims, data points, named entities,
+and actionable details. Low-substance content is vague, hedging, and generic.
+
+This is a heuristic scorer — no ML required.
+"""
+
+from __future__ import annotations
+
+import re
+from collections import Counter
+from typing import ClassVar
+
+from distill.scorer import ScoreResult, Scorer, register
+
+
+# --- Pattern definitions ---
+
+# Filler phrases that add no information
+FILLER_PHRASES = [
+    r"\bin today'?s (?:world|age|society|landscape|environment)\b",
+    r"\bit'?s (?:important|worth noting|no secret|safe to say|widely known)\b",
+    r"\bas (?:we all know|everyone knows|you may know|mentioned (?:above|earlier|before))\b",
+    r"\bwithout further ado\b",
+    r"\bin (?:this|the following) (?:article|post|guide|blog|piece)\b",
+    r"\blet'?s (?:dive in|get started|take a (?:look|closer look)|explore|delve)\b",
+    r"\b(?:first and foremost|last but not least|at the end of the day)\b",
+    r"\bneedless to say\b",
+    r"\bthe (?:fact of the matter|bottom line|reality) is\b",
+    r"\bwhen it comes to\b",
+    r"\bin (?:order|an effort) to\b",
+    r"\bit goes without saying\b",
+    r"\bthere'?s no denying\b",
+    r"\byou (?:might|may) (?:be wondering|ask yourself)\b",
+    r"\bhave you ever (?:wondered|thought about|asked yourself)\b",
+    r"\b(?:simply put|put simply|to put it simply)\b",
+    r"\b(?:in conclusion|to summarize|to sum up|all in all)\b",
+    r"\blook no further\b",
+    r"\bunlock (?:the (?:power|potential|secrets?|full)|your)\b",
+    r"\btake (?:your .+ )?to the next level\b",
+    r"\bgame[ -]?changer\b",
+    r"\bleverage (?:the power of|cutting[ -]edge)\b",
+    r"\bseamless(?:ly)?\b",
+    r"\brobust (?:and|yet) (?:scalable|flexible)\b",
+    r"\bcutting[ -]edge\b",
+    r"\bstate[ -]of[ -]the[ -]art\b",
+    r"\bone[ -]stop[ -]shop\b",
+]
+
+# Hedging phrases that weaken claims without adding specificity
+VAGUE_HEDGES = [
+    r"\bgenerally speaking\b",
+    r"\bfor the most part\b",
+    r"\bin (?:many|some|most) cases\b",
+    r"\btends to (?:be|have)\b",
+    r"\bcan (?:sometimes|often|potentially)\b",
+    r"\bmore or less\b",
+    r"\bresults may vary\b",
+    r"\byour mileage may vary\b",
+    r"\bdepending on (?:various|several|many) factors\b",
+    r"\bit depends\b",
+    r"\bvaries (?:widely|greatly|significantly)\b",
+]
+
+# Patterns suggesting concrete, specific content
+SPECIFICITY_MARKERS = [
+    r"\b\d+(?:\.\d+)?%",  # percentages
+    r"\$\d+[\d,]*(?:\.\d+)?",  # dollar amounts
+    r"\b\d{4}\b",  # years
+    r"\bv\d+\.\d+",  # version numbers
+    r"\b\d+(?:\.\d+)?\s*(?:ms|seconds?|minutes?|hours?|days?|GB|MB|KB|TB)\b",  # measurements
+    r"\b(?:for example|e\.g\.|specifically|in particular|concretely)\b",  # specificity signals
+    r"\bbecause\b",  # causal reasoning
+    r"\bhowever|but|although|whereas|despite\b",  # contrast/nuance
+    r"`.+?`",  # inline code
+    r"\bhttps?://\S+",  # URLs
+]
+
+# Sentence starters that often indicate generic AI-style writing
+GENERIC_STARTERS = [
+    r"^(?:This|It|There) (?:is|are|was|were|has been) ",
+    r"^(?:One of the|Another|The first|The key|A (?:key|major|critical|important)) ",
+    r"^(?:In|With|By|Through|Using) (?:the|this|today's) ",
+    r"^(?:Whether you're|If you're|As a) ",
+]
+
+
+def _compile_patterns(patterns: list[str]) -> list[re.Pattern]:
+    return [re.compile(p, re.IGNORECASE) for p in patterns]
+
+
+_filler_re = _compile_patterns(FILLER_PHRASES)
+_hedge_re = _compile_patterns(VAGUE_HEDGES)
+_specific_re = _compile_patterns(SPECIFICITY_MARKERS)
+_generic_start_re = _compile_patterns(GENERIC_STARTERS)
+
+
+def _count_matches(patterns: list[re.Pattern], text: str) -> int:
+    return sum(len(p.findall(text)) for p in patterns)
+
+
+def _sentence_split(text: str) -> list[str]:
+    """Rough sentence splitting."""
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    return [s.strip() for s in sentences if len(s.strip()) > 10]
+
+
+def _unique_word_ratio(text: str) -> float:
+    """Ratio of unique words to total words. Higher = more varied vocabulary."""
+    words = re.findall(r"\b[a-z]+\b", text.lower())
+    if not words:
+        return 0.0
+    return len(set(words)) / len(words)
+
+
+def _avg_sentence_info_density(sentences: list[str]) -> float:
+    """Score sentences on whether they carry concrete info vs generic filler.
+    Returns 0-1 score."""
+    if not sentences:
+        return 0.0
+
+    scores = []
+    for sent in sentences:
+        has_specific = any(p.search(sent) for p in _specific_re)
+        has_filler = any(p.search(sent) for p in _filler_re)
+        has_generic_start = any(p.search(sent) for p in _generic_start_re)
+
+        # Simple per-sentence score
+        s = 0.5
+        if has_specific:
+            s += 0.3
+        if has_filler:
+            s -= 0.3
+        if has_generic_start:
+            s -= 0.1
+        scores.append(max(0.0, min(1.0, s)))
+
+    return sum(scores) / len(scores)
+
+
+@register
+class SubstanceScorer(Scorer):
+    """Measures information density — how much concrete, specific content vs filler."""
+
+    name: ClassVar[str] = "substance"
+    description: ClassVar[str] = "Information density: concrete specifics vs vague filler"
+    weight: ClassVar[float] = 1.5  # primary signal
+
+    def score(self, text: str, metadata: dict | None = None) -> ScoreResult:
+        sentences = _sentence_split(text)
+        word_count = len(text.split())
+
+        if word_count < 20:
+            return ScoreResult(
+                name=self.name,
+                score=0.0,
+                explanation="Too short to evaluate.",
+                details={"word_count": word_count},
+            )
+
+        # Component scores
+        filler_count = _count_matches(_filler_re, text)
+        hedge_count = _count_matches(_hedge_re, text)
+        specific_count = _count_matches(_specific_re, text)
+        generic_starts = _count_matches(_generic_start_re, "\n".join(sentences))
+
+        # Normalize to per-100-words rates
+        scale = 100 / word_count
+        filler_rate = filler_count * scale
+        hedge_rate = hedge_count * scale
+        specific_rate = specific_count * scale
+
+        # Vocabulary richness
+        vocab_ratio = _unique_word_ratio(text)
+
+        # Per-sentence info density
+        info_density = _avg_sentence_info_density(sentences)
+
+        # Composite score
+        score = 0.5  # baseline
+
+        # Reward specificity
+        score += min(0.25, specific_rate * 0.05)
+
+        # Penalize filler
+        score -= min(0.25, filler_rate * 0.08)
+
+        # Penalize vague hedging
+        score -= min(0.1, hedge_rate * 0.04)
+
+        # Reward vocabulary richness (suggests nuanced writing)
+        if vocab_ratio > 0.55:
+            score += 0.05
+        elif vocab_ratio < 0.35:
+            score -= 0.05
+
+        # Factor in per-sentence density
+        score = (score * 0.6) + (info_density * 0.4)
+
+        # Penalize high ratio of generic sentence starters
+        if sentences:
+            generic_ratio = generic_starts / len(sentences)
+            if generic_ratio > 0.4:
+                score -= 0.1
+
+        score = max(0.0, min(1.0, score))
+
+        return ScoreResult(
+            name=self.name,
+            score=score,
+            explanation=self._explain(score, filler_count, specific_count, hedge_count),
+            details={
+                "filler_count": filler_count,
+                "hedge_count": hedge_count,
+                "specific_count": specific_count,
+                "filler_rate_per_100w": round(filler_rate, 2),
+                "specific_rate_per_100w": round(specific_rate, 2),
+                "vocab_richness": round(vocab_ratio, 3),
+                "info_density": round(info_density, 3),
+                "sentence_count": len(sentences),
+                "word_count": word_count,
+            },
+        )
+
+    def _explain(self, score: float, filler: int, specific: int, hedge: int) -> str:
+        parts = []
+        if specific > 3:
+            parts.append(f"Found {specific} specificity markers (data, examples, code)")
+        if filler > 2:
+            parts.append(f"Found {filler} filler phrases")
+        if hedge > 2:
+            parts.append(f"Found {hedge} vague hedges")
+
+        if score >= 0.7:
+            quality = "High substance density"
+        elif score >= 0.5:
+            quality = "Moderate substance density"
+        else:
+            quality = "Low substance density — mostly filler or generic content"
+
+        return ". ".join([quality] + parts) + "."
