@@ -59,7 +59,7 @@ def _sentence_length_variance(sentences: list[str]) -> float:
 
     lengths = [len(s.split()) for s in sentences]
     mean = sum(lengths) / len(lengths)
-    variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+    variance = sum((length - mean) ** 2 for length in lengths) / len(lengths)
     return math.sqrt(variance)
 
 
@@ -67,6 +67,14 @@ def _paragraph_count(text: str) -> int:
     """Count paragraphs (blocks of text separated by blank lines)."""
     paragraphs = re.split(r"\n\s*\n", text.strip())
     return len([p for p in paragraphs if p.strip()])
+
+
+def _count_structural_elements(text: str) -> int:
+    """Count headings and list items as structural quality signals."""
+    heading_count = len(re.findall(r"^#{1,6}\s+\S", text, re.MULTILINE))
+    list_count = len(re.findall(r"^[\s]*[-*+]\s+\S", text, re.MULTILINE))
+    numbered_list_count = len(re.findall(r"^[\s]*\d+[.)]\s+\S", text, re.MULTILINE))
+    return heading_count + list_count + numbered_list_count
 
 
 @register
@@ -103,18 +111,25 @@ class ReadabilityScorer(Scorer):
         para_count = _paragraph_count(text)
         has_structure = para_count > 1
 
+        # Structural elements (headings, lists)
+        structural_elements = _count_structural_elements(text)
+
         # --- Score components ---
         score = 0.5
 
-        # Reading level: penalize if too simple or too complex
+        # Reading level: continuous curve instead of step function
         if self.IDEAL_GRADE_MIN <= fk_grade <= self.IDEAL_GRADE_MAX:
             score += 0.15  # ideal range
-        elif fk_grade < 6:
-            score -= 0.15  # too simple, likely thin content
-        elif fk_grade > 18:
-            score -= 0.1  # unnecessarily complex
+        elif fk_grade < self.IDEAL_GRADE_MIN:
+            # Smooth penalty: linearly increases as grade drops below ideal
+            distance = self.IDEAL_GRADE_MIN - fk_grade
+            penalty = min(0.15, distance * 0.025)
+            score -= penalty
         else:
-            score += 0.05  # near-ideal
+            # Above ideal: smooth penalty for excessive complexity
+            distance = fk_grade - self.IDEAL_GRADE_MAX
+            penalty = min(0.15, distance * 0.02)
+            score -= penalty
 
         # Sentence variety: reward varied structure (good writing)
         if sent_variance > 8:
@@ -127,6 +142,12 @@ class ReadabilityScorer(Scorer):
         # Paragraph structure
         if has_structure:
             score += 0.05
+
+        # Structural elements bonus (headings, lists)
+        if structural_elements >= 3:
+            score += 0.05
+        elif structural_elements >= 1:
+            score += 0.02
 
         # Average sentence length check
         if sentences:
@@ -149,6 +170,7 @@ class ReadabilityScorer(Scorer):
                 "sentence_count": len(sentences),
                 "sentence_length_variance": round(sent_variance, 1),
                 "paragraph_count": para_count,
+                "structural_elements": structural_elements,
                 "avg_sentence_length": round(word_count / max(len(sentences), 1), 1),
                 "word_count": word_count,
             },

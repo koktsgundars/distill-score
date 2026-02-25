@@ -94,17 +94,23 @@ class TestSubstanceScorer:
 
     def test_expert_content_high(self):
         result = self.scorer.score(EXPERT_CONTENT)
-        assert result.score > 0.6
+        assert result.score > 0.65
 
     def test_slop_content_low(self):
         result = self.scorer.score(AI_SLOP)
-        assert result.score < 0.45
+        assert result.score < 0.40
 
     def test_details_populated(self):
         result = self.scorer.score(EXPERT_CONTENT)
         assert "filler_count" in result.details
         assert "specific_count" in result.details
         assert result.details["specific_count"] > 0
+
+    def test_separation(self):
+        """Expert content should score significantly higher than slop."""
+        expert = self.scorer.score(EXPERT_CONTENT)
+        slop = self.scorer.score(AI_SLOP)
+        assert expert.score - slop.score > 0.25
 
 
 class TestEpistemicScorer:
@@ -113,11 +119,17 @@ class TestEpistemicScorer:
 
     def test_nuanced_content_high(self):
         result = self.scorer.score(EXPERT_CONTENT)
-        assert result.score > 0.50
+        assert result.score > 0.55
 
     def test_overconfident_content_low(self):
         result = self.scorer.score(AI_SLOP)
-        assert result.score < 0.55
+        assert result.score < 0.50
+
+    def test_separation(self):
+        """Expert content should score higher than slop on epistemic honesty."""
+        expert = self.scorer.score(EXPERT_CONTENT)
+        slop = self.scorer.score(AI_SLOP)
+        assert expert.score > slop.score
 
 
 class TestReadabilityScorer:
@@ -128,6 +140,31 @@ class TestReadabilityScorer:
         result = self.scorer.score(EXPERT_CONTENT)
         assert result.score > 0.4
         assert "flesch_kincaid_grade" in result.details
+
+
+class TestCalibration:
+    """Verify score ordering: expert > moderate > slop across all scorers."""
+
+    def test_overall_ordering(self):
+        pipeline = Pipeline()
+        expert = pipeline.score(EXPERT_CONTENT)
+        moderate = pipeline.score(MODERATE_CONTENT)
+        slop = pipeline.score(AI_SLOP)
+
+        assert expert.overall_score > moderate.overall_score, (
+            f"Expert ({expert.overall_score:.3f}) should beat moderate ({moderate.overall_score:.3f})"
+        )
+        assert moderate.overall_score > slop.overall_score, (
+            f"Moderate ({moderate.overall_score:.3f}) should beat slop ({slop.overall_score:.3f})"
+        )
+
+    def test_expert_slop_separation(self):
+        """Expert and slop should be separated by at least 0.25 overall."""
+        pipeline = Pipeline()
+        expert = pipeline.score(EXPERT_CONTENT)
+        slop = pipeline.score(AI_SLOP)
+        gap = expert.overall_score - slop.overall_score
+        assert gap > 0.25, f"Expert-slop gap ({gap:.3f}) should be > 0.25"
 
 
 class TestRegistry:

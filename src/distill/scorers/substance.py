@@ -10,7 +10,6 @@ This is a heuristic scorer — no ML required.
 from __future__ import annotations
 
 import re
-from collections import Counter
 from typing import ClassVar
 
 from distill.scorer import ScoreResult, Scorer, register
@@ -76,6 +75,18 @@ SPECIFICITY_MARKERS = [
     r"\bhowever|but|although|whereas|despite\b",  # contrast/nuance
     r"`.+?`",  # inline code
     r"\bhttps?://\S+",  # URLs
+    # --- New specificity patterns ---
+    r"\b(?:faster|slower|better|worse|cheaper|larger|smaller) than\b",  # comparisons
+    r"\b(?:we|I) (?:found|noticed|discovered|observed|measured|tested|built|ran|saw)\b",  # practitioner experience
+    r"\bif (?:your|the) \w+ (?:is|are|has|exceeds?|needs?|requires?)\b",  # conditional claims (specific)
+    r"\b[a-z_]{2,}(?:\(\)|\.)[a-z_]+",  # code-like identifiers (func() or obj.method)
+    r"\b(?:increased|decreased|improved|reduced|dropped|grew|rose|fell) by\b",  # quantified changes
+    r"\b\d+(?:\.\d+)?\s*(?:x|×)\b",  # multiplier comparisons (3x, 2.5×)
+    r"\b\d+-(?:node|server|core|thread|user|table|day|week|month|year)\b",  # compound measurements
+    r"\b(?:from|between) \d+.{0,20}(?:to|and) \d+",  # ranges
+    r"\b(?:approximately|roughly|about|around) \d+",  # quantified approximations
+    r"\b(?:step|phase|stage) \d+\b",  # enumerated steps
+    r"\b(?:figure|table|section|chapter|appendix) \d+\b",  # document references
 ]
 
 # Sentence starters that often indicate generic AI-style writing
@@ -108,11 +119,26 @@ def _sentence_split(text: str) -> list[str]:
 
 
 def _unique_word_ratio(text: str) -> float:
-    """Ratio of unique words to total words. Higher = more varied vocabulary."""
+    """Length-adjusted vocabulary richness using Heap's Law.
+
+    Raw unique/total ratio drops as text gets longer. We compare the actual
+    unique word count to the expected count from Heap's Law (K * N^beta)
+    to get a length-independent measure.
+    """
     words = re.findall(r"\b[a-z]+\b", text.lower())
     if not words:
         return 0.0
-    return len(set(words)) / len(words)
+    n = len(words)
+    actual_unique = len(set(words))
+    # Heap's Law: expected unique ≈ K * N^beta
+    # Cap at 80% of total words (can't exceed total)
+    expected_unique = min(7 * (n ** 0.55), n * 0.80)
+    if expected_unique == 0:
+        return 0.0
+    # Ratio > 1.0 means richer than typical, < 1.0 means less rich
+    ratio = actual_unique / expected_unique
+    # Normalize to 0-1 range: ratio of ~0.5 → 0.0, ~1.5 → 1.0
+    return max(0.0, min(1.0, (ratio - 0.5) / 1.0))
 
 
 def _avg_sentence_info_density(sentences: list[str]) -> float:
@@ -172,38 +198,50 @@ class SubstanceScorer(Scorer):
         hedge_rate = hedge_count * scale
         specific_rate = specific_count * scale
 
-        # Vocabulary richness
+        # Vocabulary richness (length-adjusted)
         vocab_ratio = _unique_word_ratio(text)
 
         # Per-sentence info density
         info_density = _avg_sentence_info_density(sentences)
 
-        # Composite score
-        score = 0.5  # baseline
+        # Composite score — start low, earn your score
+        score = 0.3  # baseline
 
-        # Reward specificity
-        score += min(0.25, specific_rate * 0.05)
+        # Reward specificity (wider range)
+        score += min(0.35, specific_rate * 0.15)
 
         # Penalize filler
-        score -= min(0.25, filler_rate * 0.08)
+        score -= min(0.30, filler_rate * 0.10)
 
         # Penalize vague hedging
         score -= min(0.1, hedge_rate * 0.04)
 
-        # Reward vocabulary richness (suggests nuanced writing)
-        if vocab_ratio > 0.55:
-            score += 0.05
-        elif vocab_ratio < 0.35:
+        # Reward vocabulary richness (continuous)
+        if vocab_ratio > 0.6:
+            score += 0.08
+        elif vocab_ratio > 0.4:
+            score += 0.04
+        elif vocab_ratio < 0.2:
             score -= 0.05
 
-        # Factor in per-sentence density
-        score = (score * 0.6) + (info_density * 0.4)
+        # Factor in per-sentence density (80/20 blend)
+        score = (score * 0.8) + (info_density * 0.2)
 
         # Penalize high ratio of generic sentence starters
         if sentences:
             generic_ratio = generic_starts / len(sentences)
             if generic_ratio > 0.4:
                 score -= 0.1
+
+        # Depth bonus for long-form content with sustained specificity
+        # Rate normalization dilutes signals in long texts; this compensates
+        # by rewarding high absolute specificity density with low filler
+        if word_count > 1000:
+            specificity_per_1000w = specific_count / (word_count / 1000)
+            if specificity_per_1000w >= 10 and filler_rate < 0.5:
+                score += 0.10
+            elif specificity_per_1000w >= 5:
+                score += 0.05
 
         score = max(0.0, min(1.0, score))
 

@@ -41,6 +41,23 @@ SPECIFIC_QUALIFICATIONS = [
     r"\bfor teams (?:smaller|larger|with|without)\b",
     r"\bbefore (?:committing|deciding|choosing|starting)\b",
     r"\bthe (?:surprise|unexpected|counterintuitive)\b",
+    # --- New qualification patterns ---
+    r"\bthe (?:tradeoff|trade-off|downside|upside) (?:is|was|here)\b",
+    r"\bon balance\b",
+    r"\b(?:pro|con)s? (?:and|vs|:)\b",
+    r"\b(?:advantage|disadvantage|benefit|drawback)s? (?:of|include|are)\b",
+    r"\bif .{3,40} (?:then|you should|consider)\b",
+    r"\bunless (?:you|your|the)\b",
+    r"\b(?:we|I) (?:learned|realized|discovered) (?:that)?\b",
+    r"\bin (?:practice|reality|hindsight)\b",
+    r"\b(?:alternatively|instead|another (?:option|approach))\b",
+    r"\b(?:roughly|approximately|about|around) \d+",
+    r"\b(?:it|this) (?:varies|differs) (?:by|depending|based)\b",
+    r"\byou (?:could|might|may) (?:also|instead|alternatively)\b",
+    r"\b(?:at the cost of|at the expense of)\b",
+    r"\bwhile (?:this|it|that) (?:works|is|may)\b",
+    r"\b(?:the reality|in reality|in truth) is\b",
+    r"\bkeep in mind\b",
 ]
 
 # Overconfident absolutism (BAD)
@@ -121,27 +138,49 @@ class EpistemicScorer(Scorer):
         over_rate = overconfidence_count * scale
         reason_rate = reasoning_count * scale
 
-        # Build score
-        score = 0.5
+        # Build score — start low, earn it
+        score = 0.35
 
         # Reward qualifications and nuance
-        score += min(0.2, qual_rate * 0.06)
+        score += min(0.25, qual_rate * 0.08)
 
         # Reward reasoning structure
-        score += min(0.15, reason_rate * 0.04)
+        score += min(0.20, reason_rate * 0.05)
 
-        # Penalize overconfidence
-        score -= min(0.25, over_rate * 0.08)
+        # Penalize overconfidence only when it dominates
+        # If qualifications+reasoning substantially outnumber overconfidence, no penalty
+        positive_signals = qualification_count + reasoning_count
+        if overconfidence_count > 0:
+            if positive_signals >= overconfidence_count * 3:
+                # Expert authority with balanced qualifications — no penalty
+                pass
+            elif positive_signals >= overconfidence_count:
+                # Some overconfidence but balanced — mild penalty
+                score -= min(0.10, over_rate * 0.03)
+            else:
+                # Overconfidence dominates — full penalty
+                score -= min(0.25, over_rate * 0.08)
 
-        # Bonus: if qualifications substantially outnumber overconfidence
+        # Tiered synergy bonus: qualifications AND reasoning together
+        if qual_rate > 1.0 and reason_rate > 1.0:
+            score += 0.10  # strong synergy
+        elif qual_rate > 0.5 and reason_rate > 0.5:
+            score += 0.05  # moderate synergy
+
+        # Bonus: qualifications present with zero overconfidence
         if qualification_count > 0 and overconfidence_count == 0:
             score += 0.05
-        elif overconfidence_count > 0 and qualification_count == 0:
-            score -= 0.05
 
-        # Balance check: both qualifications AND reasoning suggests genuine expertise
-        if qual_rate > 0.5 and reason_rate > 0.5:
-            score += 0.05
+        # Depth bonus for long-form content with diverse epistemic signals
+        # Rate normalization dilutes signals in long texts; this compensates
+        # by rewarding sustained qualifications AND reasoning throughout
+        if word_count > 1000:
+            has_deep_quals = qualification_count >= 8
+            has_deep_reasoning = reasoning_count >= 6
+            if has_deep_quals and has_deep_reasoning:
+                score += 0.20  # both signal types sustained = genuine expertise
+            elif qualification_count >= 12 or reasoning_count >= 10:
+                score += 0.08  # single signal type but substantial
 
         score = max(0.0, min(1.0, score))
 
