@@ -102,6 +102,6 @@ To add a new scorer:
 - [ ] Public calibration dashboard with well-known URL scores
 
 ### Infrastructure
-- [ ] GitHub Actions CI (pytest + ruff)
+- [x] GitHub Actions CI (pytest + ruff)
 - [ ] PyPI publishing setup
 - [ ] Curated calibration corpus (ground truth maintained by us, not users)

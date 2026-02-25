@@ -41,8 +41,8 @@ ml = [
 distill = "distill.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/distill"
-Repository = "https://github.com/YOUR_USERNAME/distill"
+Homepage = "https://github.com/koktsgundars/distill-score"
+Repository = "https://github.com/koktsgundars/distill-score"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/distill"]

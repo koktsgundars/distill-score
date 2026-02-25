@@ -134,7 +134,7 @@ pip install distill-score
 pip install distill-score[ml]
 
 # Development
-git clone https://github.com/YOUR_USERNAME/distill.git
+git clone https://github.com/koktsgundars/distill-score.git
 cd distill
 pip install -e ".[dev]"
 pytest
