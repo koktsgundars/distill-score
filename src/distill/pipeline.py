@@ -167,15 +167,22 @@ class Pipeline:
     def score_batch(
         self,
         texts: list[tuple[str, str]],
-        metadata: dict | None = None,
+        metadata: list[dict | None] | dict | None = None,
     ) -> list[tuple[str, QualityReport]]:
         """Score multiple texts and return labeled reports.
 
         Args:
             texts: List of (label, text) pairs.
-            metadata: Optional metadata passed to each scorer.
+            metadata: Per-item metadata list, a single dict applied to all, or None.
 
         Returns:
             List of (label, QualityReport) pairs.
         """
-        return [(label, self.score(text, metadata)) for label, text in texts]
+        results = []
+        for i, (label, text) in enumerate(texts):
+            if isinstance(metadata, list):
+                item_meta = metadata[i] if i < len(metadata) else None
+            else:
+                item_meta = metadata
+            results.append((label, self.score(text, item_meta)))
+        return results

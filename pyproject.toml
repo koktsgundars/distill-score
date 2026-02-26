@@ -36,6 +36,9 @@ ml = [
     "sentence-transformers>=2.0",
     "numpy>=1.24",
 ]
+enrichment = [
+    "python-whois>=0.9",
+]
 
 [project.scripts]
 distill = "distill.cli:main"

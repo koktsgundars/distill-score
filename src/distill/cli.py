@@ -91,17 +91,17 @@ def main():
     pass
 
 
-def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str]:
-    """Resolve a source (URL, file path, or '-' for stdin) to (label, text).
+def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str, dict | None]:
+    """Resolve a source (URL, file path, or '-' for stdin) to (label, text, metadata).
 
     Returns:
-        Tuple of (label, text content).
+        Tuple of (label, text content, metadata dict or None).
 
     Raises:
         SystemExit: If the source cannot be resolved.
     """
     if source == "-":
-        return "stdin", sys.stdin.read()
+        return "stdin", sys.stdin.read(), None
     elif source.startswith(("http://", "https://")):
         from distill.extractors import extract_from_url
 
@@ -109,14 +109,15 @@ def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str]:
             console.print(f"[dim]Fetching {source}...[/dim]")
         try:
             extracted = extract_from_url(source)
-            return extracted.get("title", source), extracted["text"]
+            metadata = {"url": extracted.get("url", source), "title": extracted.get("title", "")}
+            return extracted.get("title", source), extracted["text"], metadata
         except Exception as e:
             console.print(f"[red]Error fetching URL: {e}[/red]")
             raise SystemExit(1)
     else:
         try:
             with open(source) as f:
-                return source, f.read()
+                return source, f.read(), None
         except FileNotFoundError:
             console.print(f"[red]File not found: {source}[/red]")
             raise SystemExit(1)
@@ -231,10 +232,10 @@ def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
     """
     scorer_names = scorers.split(",") if scorers else None
 
-    label, text = _resolve_source(source)
+    label, text, metadata = _resolve_source(source)
 
     pipeline = Pipeline(scorers=scorer_names, profile=profile)
-    report = pipeline.score(text, include_paragraphs=paragraphs)
+    report = pipeline.score(text, metadata=metadata, include_paragraphs=paragraphs)
 
     if as_json:
         import json
@@ -278,15 +279,17 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
 
     # Resolve all sources
     texts: list[tuple[str, str]] = []
+    metadata_list: list[dict | None] = []
     source_keys: list[str] = []
     for src in all_sources:
-        label, text = _resolve_source(src)
+        label, text, meta = _resolve_source(src, quiet=not as_json)
         texts.append((label, text))
+        metadata_list.append(meta)
         source_keys.append(src)
 
     # Score
     pipeline = Pipeline(scorers=scorer_names, profile=profile)
-    results = pipeline.score_batch(texts)
+    results = pipeline.score_batch(texts, metadata=metadata_list)
 
     if as_json:
         import json
