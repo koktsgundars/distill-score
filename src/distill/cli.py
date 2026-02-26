@@ -123,38 +123,12 @@ def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str, dict | 
             raise SystemExit(1)
 
 
-def _report_to_dict(report, source: str | None = None) -> dict:
+def _report_to_dict(report, source: str | None = None,
+                    include_highlights: bool = False) -> dict:
     """Convert a QualityReport to a JSON-serializable dict."""
-    data: dict = {}
+    data = report.to_dict(include_highlights=include_highlights)
     if source is not None:
-        data["source"] = source
-    data.update({
-        "overall_score": round(report.overall_score, 3),
-        "grade": report.grade,
-        "label": report.label,
-        "word_count": report.word_count,
-        "dimensions": {
-            r.name: {
-                "score": round(r.score, 3),
-                "explanation": r.explanation,
-                "details": r.details,
-            }
-            for r in report.scores
-        },
-    })
-    if report.paragraph_scores:
-        data["paragraphs"] = [
-            {
-                "index": ps.index,
-                "preview": ps.text_preview,
-                "overall_score": round(ps.overall_score, 3),
-                "word_count": ps.word_count,
-                "dimensions": {
-                    r.name: round(r.score, 3) for r in ps.scores
-                },
-            }
-            for ps in report.paragraph_scores
-        ]
+        data = {"source": source, **data}
     return data
 
 
@@ -204,16 +178,6 @@ def _display_highlights(report) -> None:
         console.print()
 
 
-def _report_to_dict_with_highlights(report, source: str | None = None) -> dict:
-    """Convert a QualityReport to a JSON-serializable dict, including highlights."""
-    data = _report_to_dict(report, source)
-    for result in report.scores:
-        if result.name in data["dimensions"]:
-            data["dimensions"][result.name]["highlights"] = [
-                {"text": h.text, "category": h.category, "position": h.position}
-                for h in result.highlights
-            ]
-    return data
 
 
 @main.command()
@@ -240,10 +204,9 @@ def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
     if as_json:
         import json
 
-        if highlights:
-            click.echo(json.dumps(_report_to_dict_with_highlights(report), indent=2))
-        else:
-            click.echo(json.dumps(_report_to_dict(report), indent=2))
+        click.echo(json.dumps(
+            _report_to_dict(report, include_highlights=highlights), indent=2
+        ))
     else:
         _display_report(report, source=label)
         if highlights:

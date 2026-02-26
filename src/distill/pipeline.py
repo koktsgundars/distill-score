@@ -21,6 +21,16 @@ class ParagraphScore:
     word_count: int
     scores: list[ScoreResult] = field(default_factory=list)
 
+    def to_dict(self) -> dict:
+        """Convert to a JSON-serializable dict."""
+        return {
+            "index": self.index,
+            "preview": self.text_preview,
+            "overall_score": round(self.overall_score, 3),
+            "word_count": self.word_count,
+            "dimensions": {r.name: round(r.score, 3) for r in self.scores},
+        }
+
 
 @dataclass
 class QualityReport:
@@ -56,6 +66,32 @@ class QualityReport:
             "F": "Low substance",
         }
         return labels[self.grade]
+
+    def to_dict(self, include_highlights: bool = False) -> dict:
+        """Convert to a JSON-serializable dict.
+
+        Args:
+            include_highlights: If True, include matched highlights per scorer.
+        """
+        data: dict = {
+            "overall_score": round(self.overall_score, 3),
+            "grade": self.grade,
+            "label": self.label,
+            "word_count": self.word_count,
+            "dimensions": {},
+        }
+        for r in self.scores:
+            dim: dict = {
+                "score": round(r.score, 3),
+                "explanation": r.explanation,
+                "details": r.details,
+            }
+            if include_highlights and r.highlights:
+                dim["highlights"] = [h.to_dict() for h in r.highlights]
+            data["dimensions"][r.name] = dim
+        if self.paragraph_scores:
+            data["paragraphs"] = [ps.to_dict() for ps in self.paragraph_scores]
+        return data
 
 
 class Pipeline:

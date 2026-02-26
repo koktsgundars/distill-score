@@ -1,8 +1,12 @@
 """Tests for distill content quality scoring."""
 
+import os
+import tempfile
+
 import pytest
+import distill
 from distill import Pipeline
-from distill.scorer import ScoreResult, list_scorers, get_scorer
+from distill.scorer import ScoreResult, MatchHighlight, list_scorers, get_scorer
 
 
 # --- Fixtures ---
@@ -349,3 +353,129 @@ class TestHighlights:
             assert 0 <= h.position < text_len, (
                 f"Position {h.position} out of bounds for text length {text_len}"
             )
+
+
+class TestConvenienceFunctions:
+    def test_score_returns_report(self):
+        report = distill.score(EXPERT_CONTENT)
+        assert isinstance(report, distill.QualityReport)
+        assert report.overall_score > 0.0
+        assert report.word_count > 0
+
+    def test_score_with_profile(self):
+        default_report = distill.score(EXPERT_CONTENT)
+        tech_report = distill.score(EXPERT_CONTENT, profile="technical")
+        assert default_report.overall_score != tech_report.overall_score
+
+    def test_score_with_scorers(self):
+        report = distill.score(EXPERT_CONTENT, scorers=["substance"])
+        assert len(report.scores) == 1
+        assert report.scores[0].name == "substance"
+
+    def test_score_with_weights(self):
+        report = distill.score(EXPERT_CONTENT, weights={"substance": 10.0})
+        assert report.overall_score > 0.0
+
+    def test_score_file(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(EXPERT_CONTENT)
+            f.flush()
+            path = f.name
+        try:
+            report = distill.score_file(path)
+            assert isinstance(report, distill.QualityReport)
+            assert report.overall_score > 0.0
+        finally:
+            os.unlink(path)
+
+    def test_score_file_with_profile(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(EXPERT_CONTENT)
+            f.flush()
+            path = f.name
+        try:
+            report = distill.score_file(path, profile="news")
+            assert isinstance(report, distill.QualityReport)
+        finally:
+            os.unlink(path)
+
+
+class TestToDict:
+    def test_match_highlight_to_dict(self):
+        h = MatchHighlight(text="test phrase", category="filler", position=42)
+        d = h.to_dict()
+        assert d == {"text": "test phrase", "category": "filler", "position": 42}
+
+    def test_score_result_to_dict(self):
+        result = ScoreResult(
+            name="substance", score=0.756, explanation="Good content",
+            details={"filler_count": 2},
+        )
+        d = result.to_dict()
+        assert d["name"] == "substance"
+        assert d["score"] == 0.756
+        assert d["explanation"] == "Good content"
+        assert d["details"] == {"filler_count": 2}
+        assert "highlights" not in d  # empty highlights omitted
+
+    def test_score_result_to_dict_with_highlights(self):
+        h = MatchHighlight(text="key factor", category="filler", position=10)
+        result = ScoreResult(name="substance", score=0.5, highlights=[h])
+        d = result.to_dict()
+        assert "highlights" in d
+        assert len(d["highlights"]) == 1
+        assert d["highlights"][0]["text"] == "key factor"
+
+    def test_quality_report_to_dict(self):
+        report = distill.score(EXPERT_CONTENT)
+        d = report.to_dict()
+        assert "overall_score" in d
+        assert "grade" in d
+        assert "label" in d
+        assert "word_count" in d
+        assert "dimensions" in d
+        assert isinstance(d["dimensions"], dict)
+        assert len(d["dimensions"]) == len(report.scores)
+
+    def test_quality_report_to_dict_with_highlights(self):
+        report = distill.score(EXPERT_CONTENT)
+        d = report.to_dict(include_highlights=True)
+        # At least one scorer should have highlights on expert content
+        has_highlights = any(
+            "highlights" in dim for dim in d["dimensions"].values()
+        )
+        assert has_highlights
+
+    def test_quality_report_to_dict_with_paragraphs(self):
+        report = distill.score(MULTI_PARAGRAPH, include_paragraphs=True)
+        d = report.to_dict()
+        assert "paragraphs" in d
+        assert len(d["paragraphs"]) > 0
+        para = d["paragraphs"][0]
+        assert "index" in para
+        assert "preview" in para
+        assert "overall_score" in para
+        assert "dimensions" in para
+
+    def test_paragraph_score_to_dict(self):
+        report = distill.score(MULTI_PARAGRAPH, include_paragraphs=True)
+        ps = report.paragraph_scores[0]
+        d = ps.to_dict()
+        assert "index" in d
+        assert "preview" in d
+        assert "overall_score" in d
+        assert "word_count" in d
+        assert "dimensions" in d
+
+
+class TestExtractorExports:
+    def test_extract_from_html_exported(self):
+        from distill import extract_from_html
+        result = extract_from_html("<html><body><p>Hello world</p></body></html>")
+        assert "text" in result
+        assert "Hello world" in result["text"]
+
+    def test_extract_from_url_exported(self):
+        # Just verify the function is importable from top level
+        from distill import extract_from_url
+        assert callable(extract_from_url)

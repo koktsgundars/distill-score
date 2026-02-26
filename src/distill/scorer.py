@@ -15,6 +15,10 @@ class MatchHighlight:
     category: str      # e.g. "filler", "specificity", "qualification", "overconfidence"
     position: int      # char offset in source text
 
+    def to_dict(self) -> dict:
+        """Convert to a JSON-serializable dict."""
+        return {"text": self.text, "category": self.category, "position": self.position}
+
 
 @dataclass
 class ScoreResult:
@@ -28,6 +32,18 @@ class ScoreResult:
 
     def __post_init__(self):
         self.score = max(0.0, min(1.0, self.score))
+
+    def to_dict(self) -> dict:
+        """Convert to a JSON-serializable dict."""
+        d: dict = {
+            "name": self.name,
+            "score": round(self.score, 3),
+            "explanation": self.explanation,
+            "details": self.details,
+        }
+        if self.highlights:
+            d["highlights"] = [h.to_dict() for h in self.highlights]
+        return d
 
 
 class Scorer(ABC):
