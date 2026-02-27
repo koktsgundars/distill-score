@@ -31,10 +31,14 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
+    "pyyaml>=6.0",
 ]
 ml = [
     "sentence-transformers>=2.0",
     "numpy>=1.24",
+]
+server = [
+    "flask>=3.0",
 ]
 enrichment = [
     "python-whois>=0.9",

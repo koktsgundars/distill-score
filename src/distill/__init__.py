@@ -12,7 +12,13 @@ __version__ = "0.1.0"
 import distill.scorers  # noqa: F401
 
 from distill.extractors import extract_from_html, extract_from_url
-from distill.pipeline import ParagraphScore, Pipeline, QualityReport
+from distill.pipeline import (
+    ComparisonResult,
+    DimensionDelta,
+    ParagraphScore,
+    Pipeline,
+    QualityReport,
+)
 from distill.profiles import ScorerProfile, get_profile, list_profiles, register_profile
 from distill.scorer import MatchHighlight, ScoreResult, Scorer, register, get_scorer, list_scorers
 
@@ -99,7 +105,45 @@ def score_file(
     return pipeline.score(text, metadata=metadata, include_paragraphs=include_paragraphs)
 
 
+def compare(
+    text_a: str,
+    text_b: str,
+    *,
+    label_a: str = "A",
+    label_b: str = "B",
+    profile: str | None = None,
+    scorers: list[str] | None = None,
+    weights: dict[str, float] | None = None,
+    metadata_a: dict | None = None,
+    metadata_b: dict | None = None,
+) -> ComparisonResult:
+    """Compare two texts and determine which scores higher.
+
+    Args:
+        text_a: First text to compare.
+        text_b: Second text to compare.
+        label_a: Label for the first text.
+        label_b: Label for the second text.
+        profile: Scorer profile name.
+        scorers: List of scorer names to use.
+        weights: Weight overrides per scorer.
+        metadata_a: Optional metadata for text A.
+        metadata_b: Optional metadata for text B.
+
+    Returns:
+        ComparisonResult with per-dimension deltas and overall winner.
+    """
+    pipeline = Pipeline(scorers=scorers, weights=weights, profile=profile)
+    return pipeline.compare(
+        text_a, text_b,
+        label_a=label_a, label_b=label_b,
+        metadata_a=metadata_a, metadata_b=metadata_b,
+    )
+
+
 __all__ = [
+    "ComparisonResult",
+    "DimensionDelta",
     "MatchHighlight",
     "ParagraphScore",
     "Pipeline",
@@ -107,6 +151,7 @@ __all__ = [
     "ScoreResult",
     "Scorer",
     "ScorerProfile",
+    "compare",
     "extract_from_html",
     "extract_from_url",
     "get_profile",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Literal
 
 from distill.scorer import ScoreResult, Scorer, get_scorer, list_scorers
 
@@ -92,6 +93,54 @@ class QualityReport:
         if self.paragraph_scores:
             data["paragraphs"] = [ps.to_dict() for ps in self.paragraph_scores]
         return data
+
+
+_TIE_THRESHOLD = 0.01
+
+
+@dataclass
+class DimensionDelta:
+    """Score delta for a single dimension between two texts."""
+
+    name: str
+    score_a: float
+    score_b: float
+    delta: float  # score_a - score_b
+    winner: Literal["A", "B", "tie"]
+
+
+@dataclass
+class ComparisonResult:
+    """Result of comparing two texts across all dimensions."""
+
+    label_a: str
+    label_b: str
+    report_a: QualityReport
+    report_b: QualityReport
+    winner: Literal["A", "B", "tie"]
+    overall_delta: float  # report_a.overall_score - report_b.overall_score
+    dimension_deltas: list[DimensionDelta] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Convert to a JSON-serializable dict."""
+        return {
+            "label_a": self.label_a,
+            "label_b": self.label_b,
+            "winner": self.winner,
+            "overall_delta": round(self.overall_delta, 3),
+            "report_a": self.report_a.to_dict(),
+            "report_b": self.report_b.to_dict(),
+            "dimensions": [
+                {
+                    "name": d.name,
+                    "score_a": round(d.score_a, 3),
+                    "score_b": round(d.score_b, 3),
+                    "delta": round(d.delta, 3),
+                    "winner": d.winner,
+                }
+                for d in self.dimension_deltas
+            ],
+        }
 
 
 class Pipeline:
@@ -222,3 +271,67 @@ class Pipeline:
                 item_meta = metadata
             results.append((label, self.score(text, item_meta)))
         return results
+
+    def compare(
+        self,
+        text_a: str,
+        text_b: str,
+        label_a: str = "A",
+        label_b: str = "B",
+        metadata_a: dict | None = None,
+        metadata_b: dict | None = None,
+    ) -> ComparisonResult:
+        """Compare two texts and determine which scores higher.
+
+        Args:
+            text_a: First text to compare.
+            text_b: Second text to compare.
+            label_a: Label for the first text.
+            label_b: Label for the second text.
+            metadata_a: Optional metadata for text A.
+            metadata_b: Optional metadata for text B.
+
+        Returns:
+            ComparisonResult with per-dimension deltas and overall winner.
+        """
+        report_a = self.score(text_a, metadata_a)
+        report_b = self.score(text_b, metadata_b)
+
+        overall_delta = report_a.overall_score - report_b.overall_score
+
+        if abs(overall_delta) < _TIE_THRESHOLD:
+            winner: Literal["A", "B", "tie"] = "tie"
+        elif overall_delta > 0:
+            winner = "A"
+        else:
+            winner = "B"
+
+        # Build per-dimension deltas
+        scores_b_map = {r.name: r.score for r in report_b.scores}
+        dimension_deltas = []
+        for result_a in report_a.scores:
+            score_b = scores_b_map.get(result_a.name, 0.0)
+            delta = result_a.score - score_b
+            if abs(delta) < _TIE_THRESHOLD:
+                dim_winner: Literal["A", "B", "tie"] = "tie"
+            elif delta > 0:
+                dim_winner = "A"
+            else:
+                dim_winner = "B"
+            dimension_deltas.append(DimensionDelta(
+                name=result_a.name,
+                score_a=result_a.score,
+                score_b=score_b,
+                delta=delta,
+                winner=dim_winner,
+            ))
+
+        return ComparisonResult(
+            label_a=label_a,
+            label_b=label_b,
+            report_a=report_a,
+            report_b=report_b,
+            winner=winner,
+            overall_delta=overall_delta,
+            dimension_deltas=dimension_deltas,
+        )

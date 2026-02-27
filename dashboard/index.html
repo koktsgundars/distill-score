@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>distill — Calibration Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { color: #fff; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--text-dim); margin-bottom: 2rem; }
+  .meta { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 1.5rem; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--border);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th:hover { background: #3a424b; }
+  th .arrow { font-size: 0.7rem; margin-left: 4px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover { background: #1c2128; }
+  .grade {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    min-width: 2rem;
+    text-align: center;
+  }
+  .grade-A { background: var(--green); color: #000; }
+  .grade-B { background: #238636; color: #fff; }
+  .grade-C { background: var(--yellow); color: #000; }
+  .grade-D { background: #da3633; color: #fff; }
+  .grade-F { background: var(--red); color: #fff; }
+  .score-cell {
+    position: relative;
+    min-width: 80px;
+  }
+  .score-bar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    opacity: 0.15;
+    border-radius: 2px;
+  }
+  .score-val { position: relative; z-index: 1; font-variant-numeric: tabular-nums; }
+  .tier { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
+  .error { color: var(--red); font-size: 0.85rem; }
+  .url { color: var(--accent); text-decoration: none; }
+  .url:hover { text-decoration: underline; }
+  .howto {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .howto code {
+    background: var(--border);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+  }
+  #loading { text-align: center; padding: 3rem; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<h1>distill Calibration Dashboard</h1>
+<p class="subtitle">Content quality scores for well-known URLs</p>
+<div id="meta" class="meta"></div>
+<div id="loading">Loading data.json...</div>
+<table id="dashboard" style="display:none">
+  <thead>
+    <tr>
+      <th data-sort="description">Source <span class="arrow"></span></th>
+      <th data-sort="overall_score">Score <span class="arrow"></span></th>
+      <th data-sort="grade">Grade <span class="arrow"></span></th>
+      <th data-sort="word_count">Words <span class="arrow"></span></th>
+      <th>Dimensions</th>
+      <th data-sort="expected_tier">Tier <span class="arrow"></span></th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+<div class="howto">
+  <strong>How to regenerate:</strong><br>
+  <code>pip install -e ".[dev]"</code> then
+  <code>python scripts/generate_dashboard.py</code><br>
+  Use <code>--dry-run</code> for offline mode with inline samples.
+</div>
+
+<script>
+(async function() {
+  const loading = document.getElementById('loading');
+  const table = document.getElementById('dashboard');
+  const tbody = document.getElementById('tbody');
+  const meta = document.getElementById('meta');
+
+  let data;
+  try {
+    const resp = await fetch('data.json');
+    data = await resp.json();
+  } catch (e) {
+    loading.innerHTML = '<span class="error">Failed to load data.json. Run generate_dashboard.py first.</span>';
+    return;
+  }
+
+  loading.style.display = 'none';
+  table.style.display = '';
+
+  const genDate = new Date(data.generated_at);
+  meta.textContent = `Generated: ${genDate.toLocaleString()} — ${data.entry_count} entries`;
+
+  function scoreColor(score) {
+    if (score >= 0.7) return 'var(--green)';
+    if (score >= 0.5) return 'var(--yellow)';
+    return 'var(--red)';
+  }
+
+  function renderRows(results) {
+    tbody.innerHTML = '';
+    for (const r of results) {
+      const tr = document.createElement('tr');
+      if (r.error) {
+        tr.innerHTML = `
+          <td><span class="error">${esc(r.description)}</span><br>
+              <a class="url" href="${esc(r.url)}" target="_blank">${esc(r.url)}</a></td>
+          <td colspan="4"><span class="error">${esc(r.error)}</span></td>
+          <td><span class="tier">${esc(r.expected_tier)}</span></td>`;
+      } else {
+        const dims = Object.entries(r.dimensions || {})
+          .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
+          .join(', ');
+        const barW = Math.round(r.overall_score * 100);
+        tr.innerHTML = `
+          <td>${esc(r.title || r.description)}<br>
+              <a class="url" href="${esc(r.url)}" target="_blank">${esc(r.url)}</a></td>
+          <td class="score-cell">
+            <div class="score-bar" style="width:${barW}%;background:${scoreColor(r.overall_score)}"></div>
+            <span class="score-val">${r.overall_score.toFixed(3)}</span>
+          </td>
+          <td><span class="grade grade-${r.grade}">${r.grade}</span></td>
+          <td>${(r.word_count || 0).toLocaleString()}</td>
+          <td style="font-size:0.85rem;color:var(--text-dim)">${esc(dims)}</td>
+          <td><span class="tier">${esc(r.expected_tier)}</span></td>`;
+      }
+      tbody.appendChild(tr);
+    }
+  }
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  // Sorting
+  let sortKey = 'overall_score';
+  let sortAsc = false;
+
+  function sortResults() {
+    const results = [...data.results];
+    results.sort((a, b) => {
+      let va = a[sortKey], vb = b[sortKey];
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+    renderRows(results);
+  }
+
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) { sortAsc = !sortAsc; }
+      else { sortKey = key; sortAsc = false; }
+      document.querySelectorAll('th .arrow').forEach(a => a.textContent = '');
+      th.querySelector('.arrow').textContent = sortAsc ? ' \u25B2' : ' \u25BC';
+      sortResults();
+    });
+  });
+
+  sortResults();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-02-27T00:02:55.081544+00:00",
+  "entry_count": 4,
+  "results": [
+    {
+      "url": "example://expert-article",
+      "description": "Expert technical article (inline sample)",
+      "expected_tier": "high",
+      "title": "Expert technical article (inline sample)",
+      "overall_score": 0.615,
+      "grade": "C",
+      "label": "Average",
+      "word_count": 119,
+      "dimensions": {
+        "authority": 0.25,
+        "epistemic": 0.602,
+        "originality": 0.51,
+        "readability": 0.85,
+        "substance": 0.682
+      },
+      "error": null
+    },
+    {
+      "url": "example://research-report",
+      "description": "Data-heavy research findings (inline sample)",
+      "expected_tier": "high",
+      "title": "Data-heavy research findings (inline sample)",
+      "overall_score": 0.569,
+      "grade": "C",
+      "label": "Average",
+      "word_count": 96,
+      "dimensions": {
+        "authority": 0.525,
+        "epistemic": 0.402,
+        "originality": 0.43,
+        "readability": 0.75,
+        "substance": 0.674
+      },
+      "error": null
+    },
+    {
+      "url": "example://moderate-advice",
+      "description": "Moderate technical advice (inline sample)",
+      "expected_tier": "medium",
+      "title": "Moderate technical advice (inline sample)",
+      "overall_score": 0.462,
+      "grade": "D",
+      "label": "Thin content",
+      "word_count": 70,
+      "dimensions": {
+        "authority": 0.25,
+        "epistemic": 0.35,
+        "originality": 0.33,
+        "readability": 0.7,
+        "substance": 0.553
+      },
+      "error": null
+    },
+    {
+      "url": "example://generic-content",
+      "description": "Generic AI-generated content (inline sample)",
+      "expected_tier": "low",
+      "title": "Generic AI-generated content (inline sample)",
+      "overall_score": 0.32,
+      "grade": "F",
+      "label": "Low substance",
+      "word_count": 85,
+      "dimensions": {
+        "authority": 0.25,
+        "epistemic": 0.35,
+        "originality": 0.33,
+        "readability": 0.8,
+        "substance": 0.078
+      },
+      "error": null
+    }
+  ]
+}

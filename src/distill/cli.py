@@ -184,16 +184,20 @@ def _display_highlights(report) -> None:
 @click.argument("source")
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
 @click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
 @click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
-def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
+def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragraphs: bool,
           highlights: bool, profile: str | None):
     """Score content quality from a URL or file.
 
     SOURCE can be a URL (https://...) or a file path (- for stdin).
     """
+    if as_json and as_csv:
+        raise click.UsageError("--json and --csv are mutually exclusive.")
+
     scorer_names = scorers.split(",") if scorers else None
 
     label, text, metadata = _resolve_source(source)
@@ -207,6 +211,11 @@ def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
         click.echo(json.dumps(
             _report_to_dict(report, include_highlights=highlights), indent=2
         ))
+    elif as_csv:
+        from distill.export import report_to_csv_row, reports_to_csv
+
+        row = report_to_csv_row(report, source=source)
+        click.echo(reports_to_csv([row]), nl=False)
     else:
         _display_report(report, source=label)
         if highlights:
@@ -221,14 +230,18 @@ def score(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
               help="Read sources from a file (one per line)")
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
 def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, as_json: bool,
-          profile: str | None):
+          as_csv: bool, profile: str | None):
     """Score multiple sources and compare them.
 
     Accepts multiple URLs or file paths as arguments.
     """
+    if as_json and as_csv:
+        raise click.UsageError("--json and --csv are mutually exclusive.")
+
     all_sources = list(sources)
     if from_file:
         with open(from_file) as f:
@@ -262,6 +275,14 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
             for i, (label, report) in enumerate(results)
         ]
         click.echo(json.dumps(data, indent=2))
+    elif as_csv:
+        from distill.export import report_to_csv_row, reports_to_csv
+
+        rows = [
+            report_to_csv_row(report, source=source_keys[i])
+            for i, (label, report) in enumerate(results)
+        ]
+        click.echo(reports_to_csv(rows), nl=False)
     else:
         # Show individual reports
         for label, report in results:
@@ -324,6 +345,124 @@ def profiles():
         table.add_row(name, desc)
 
     console.print(table)
+
+
+@main.command()
+@click.argument("source_a")
+@click.argument("source_b")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--profile", "-p", help="Scorer profile", default=None)
+@click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
+def compare(source_a: str, source_b: str, as_json: bool, profile: str | None,
+            scorers: str | None):
+    """Compare quality of two sources side by side.
+
+    SOURCE_A and SOURCE_B can be URLs or file paths (- for stdin on one).
+    """
+    scorer_names = scorers.split(",") if scorers else None
+
+    label_a, text_a, meta_a = _resolve_source(source_a)
+    label_b, text_b, meta_b = _resolve_source(source_b)
+
+    pipeline = Pipeline(scorers=scorer_names, profile=profile)
+    result = pipeline.compare(
+        text_a, text_b,
+        label_a=label_a, label_b=label_b,
+        metadata_a=meta_a, metadata_b=meta_b,
+    )
+
+    if as_json:
+        import json
+
+        click.echo(json.dumps(result.to_dict(), indent=2))
+    else:
+        _display_comparison(result, source_a, source_b)
+
+
+def _display_comparison(result, source_a: str, source_b: str) -> None:
+    """Rich display of a comparison result."""
+    table = Table(title="Comparison", show_header=True, header_style="bold", box=None,
+                  padding=(0, 2))
+    table.add_column("Dimension", style="cyan")
+    table.add_column(f"A: {source_a[:30]}", justify="right")
+    table.add_column(f"B: {source_b[:30]}", justify="right")
+    table.add_column("Delta", justify="right")
+    table.add_column("Winner", justify="center")
+
+    for d in result.dimension_deltas:
+        winner_str = ""
+        if d.winner == "A":
+            winner_str = "[green]<-- A[/green]"
+        elif d.winner == "B":
+            winner_str = "[green]B -->[/green]"
+        else:
+            winner_str = "[dim]tie[/dim]"
+
+        delta_color = "green" if d.delta > 0 else ("red" if d.delta < 0 else "dim")
+        delta_str = f"[{delta_color}]{d.delta:+.3f}[/{delta_color}]"
+
+        table.add_row(
+            d.name,
+            f"{d.score_a:.3f}",
+            f"{d.score_b:.3f}",
+            delta_str,
+            winner_str,
+        )
+
+    # Overall row
+    table.add_row("", "", "", "", "")
+    overall_delta = result.overall_delta
+    delta_color = "green" if overall_delta > 0 else ("red" if overall_delta < 0 else "dim")
+    table.add_row(
+        "[bold]Overall[/bold]",
+        f"[bold]{result.report_a.overall_score:.3f}[/bold]",
+        f"[bold]{result.report_b.overall_score:.3f}[/bold]",
+        f"[bold {delta_color}]{overall_delta:+.3f}[/bold {delta_color}]",
+        "",
+    )
+
+    console.print(table)
+
+    # Winner banner
+    if result.winner == "tie":
+        console.print(
+            Panel("[bold yellow]TIE[/bold yellow] — scores are within noise threshold",
+                  border_style="yellow")
+        )
+    elif result.winner == "A":
+        console.print(
+            Panel(f"[bold green]WINNER: A[/bold green] ({result.label_a}) "
+                  f"by {abs(overall_delta):.3f}",
+                  border_style="green")
+        )
+    else:
+        console.print(
+            Panel(f"[bold green]WINNER: B[/bold green] ({result.label_b}) "
+                  f"by {abs(overall_delta):.3f}",
+                  border_style="green")
+        )
+
+
+@main.command()
+@click.option("--port", default=7331, help="Port to listen on (default: 7331)")
+@click.option("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
+def serve(port: int, host: str):
+    """Start the scoring API server for the browser extension."""
+    try:
+        from distill.server import create_app
+    except ImportError:
+        console.print(
+            "[red]Flask is required for the server. "
+            "Install it with: pip install distill-score[server][/red]"
+        )
+        raise SystemExit(1)
+
+    app = create_app()
+    console.print(f"[bold]distill server[/bold] running on http://{host}:{port}")
+    console.print("[dim]POST /score with {{\"html\": \"...\"}} or {{\"text\": \"...\"}}[/dim]")
+    console.print("[dim]GET /health for status[/dim]")
+    console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+    app.run(host=host, port=port, debug=False)
 
 
 @main.command()

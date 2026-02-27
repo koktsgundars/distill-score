@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 320px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 16px;
+  }
+  h1 { font-size: 16px; color: #fff; margin-bottom: 12px; }
+  #status { color: #8b949e; font-size: 13px; margin-bottom: 12px; }
+  #error { color: #f85149; font-size: 13px; margin-bottom: 8px; display: none; }
+  #results { display: none; }
+  .overall {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 10px;
+    background: #161b22;
+    border-radius: 6px;
+  }
+  .grade {
+    font-size: 28px;
+    font-weight: 800;
+    min-width: 40px;
+    text-align: center;
+  }
+  .grade-A { color: #3fb950; }
+  .grade-B { color: #238636; }
+  .grade-C { color: #d29922; }
+  .grade-D { color: #da3633; }
+  .grade-F { color: #f85149; }
+  .score-info { flex: 1; }
+  .score-info .score { font-size: 20px; font-weight: 600; }
+  .score-info .label { font-size: 12px; color: #8b949e; }
+  .dim { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #21262d; }
+  .dim:last-child { border-bottom: none; }
+  .dim-name { font-size: 13px; }
+  .dim-score { font-size: 13px; font-weight: 600; }
+  .bar { height: 4px; background: #21262d; border-radius: 2px; margin-top: 3px; }
+  .bar-fill { height: 100%; border-radius: 2px; }
+  button {
+    width: 100%;
+    padding: 8px;
+    background: #238636;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  button:hover { background: #2ea043; }
+  button:disabled { background: #21262d; color: #484f58; cursor: default; }
+  .words { font-size: 12px; color: #8b949e; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <h1>distill</h1>
+  <div id="status">Click "Score Page" to analyze this page.</div>
+  <div id="error"></div>
+  <div id="results">
+    <div class="overall">
+      <div id="grade" class="grade"></div>
+      <div class="score-info">
+        <div id="score" class="score"></div>
+        <div id="label" class="label"></div>
+      </div>
+    </div>
+    <div id="dimensions"></div>
+    <div id="words" class="words"></div>
+  </div>
+  <button id="scoreBtn">Score Page</button>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "distill — Content Quality Scorer",
+  "description": "Score any web page for content quality using distill",
+  "version": "0.1.0",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

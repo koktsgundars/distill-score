@@ -1,0 +1,157 @@
+# Calibration corpus for distill quality scoring.
+# Each entry defines expected score/grade ranges to catch regressions.
+# Ranges are intentionally wide to avoid brittle tests.
+
+entries:
+  - id: expert_technical
+    description: "Expert practitioner content with specific metrics and tradeoffs"
+    expected_min_score: 0.55
+    expected_max_score: 0.95
+    expected_min_grade: C
+    expected_max_grade: A
+    dimension_expectations:
+      substance:
+        min: 0.65
+        max: 1.0
+      epistemic:
+        min: 0.55
+        max: 1.0
+    text: |
+      We migrated our PostgreSQL cluster from 14 to 16 in January 2025. The process took
+      3 weeks across our 12-node setup. The key challenge was that our custom extensions
+      (pg_partman and timescaledb) required version-specific rebuilds. Latency improved
+      by approximately 18% on our analytical queries due to improved parallel query
+      execution, but we saw a regression in write throughput (about 7% drop) that we
+      traced to changed autovacuum defaults.
+
+      The tradeoff: PostgreSQL 16's improved logical replication was the main driver
+      for the upgrade, because we needed to replicate to our Snowflake warehouse
+      without CDC tools. However, this only works for tables without generated columns,
+      which forced us to restructure 3 of our 40 tables. For teams considering this
+      upgrade, I'd recommend testing your specific extension stack against 16 before
+      committing — the core upgrade is smooth, but extension compatibility is where
+      the surprises live.
+
+  - id: ai_slop
+    description: "Generic AI-generated filler content with no substance"
+    expected_min_score: 0.05
+    expected_max_score: 0.40
+    expected_min_grade: D
+    expected_max_grade: F
+    dimension_expectations:
+      substance:
+        min: 0.0
+        max: 0.35
+    text: |
+      In today's fast-paced digital world, database management is more important than
+      ever. Whether you're a startup or an enterprise, choosing the right database
+      solution can take your business to the next level. There are many options
+      available, and it's important to evaluate each one carefully.
+
+      First and foremost, you should consider your scalability needs. A robust and
+      scalable database solution will help you unlock the full potential of your data.
+      Another key factor is performance. In this article, we'll explore the best
+      practices for database management that every developer should know. Let's dive
+      in and discover the secrets to database success.
+
+  - id: moderate_advice
+    description: "Decent content with some specifics but mostly general advice"
+    expected_min_score: 0.30
+    expected_max_score: 0.65
+    expected_min_grade: D
+    expected_max_grade: B
+    text: |
+      Database migrations require careful planning. Before upgrading, you should back up
+      your data and test the migration in a staging environment. Some common issues include
+      compatibility problems with extensions and changes to default configurations.
+
+      It's generally a good idea to read the release notes carefully. Performance may
+      improve in some areas but could regress in others. Testing with realistic workloads
+      is important to understand the full impact of an upgrade.
+
+  - id: well_cited_research
+    description: "Content with specific citations, data points, and methodology"
+    expected_min_score: 0.55
+    expected_max_score: 0.95
+    expected_min_grade: C
+    expected_max_grade: A
+    dimension_expectations:
+      substance:
+        min: 0.55
+        max: 1.0
+    text: |
+      A 2024 study by Chen et al. (Nature Machine Intelligence, vol. 6, pp. 234-241)
+      found that transformer models trained on code exhibit 23% higher reasoning accuracy
+      on mathematical proofs compared to text-only models. The study evaluated 1,847
+      proof attempts across three benchmark datasets (MathProof-500, LEAN4-bench, and
+      Coq-verify). Notably, the improvement was concentrated in proofs requiring more
+      than 5 inference steps — for shorter proofs, the difference was statistically
+      insignificant (p=0.34).
+
+      However, these results should be interpreted cautiously. The training data for
+      code-trained models likely included mathematical notation in docstrings and comments,
+      creating a potential confound. The authors acknowledge this limitation and note that
+      controlling for mathematical content in training data reduced the gap to approximately
+      12%.
+
+  - id: opinion_piece
+    description: "Personal opinion with some reasoning but limited evidence"
+    expected_min_score: 0.30
+    expected_max_score: 0.70
+    expected_min_grade: D
+    expected_max_grade: B
+    dimension_expectations:
+      epistemic:
+        min: 0.30
+        max: 0.85
+    text: |
+      I think microservices are overused in our industry. Most teams I've worked with
+      would be better served by a well-structured monolith. The operational overhead of
+      managing 20+ services, each with its own deployment pipeline and monitoring, is
+      something people underestimate until they're living it.
+
+      That said, I'll admit there are cases where microservices make sense — particularly
+      when you have genuinely independent teams that need to deploy on different schedules.
+      But the default should be monolith-first, and you should only split when you have
+      concrete evidence that the monolith is holding you back, not because a blog post
+      told you microservices are the future.
+
+  - id: data_heavy_report
+    description: "Content dense with numbers, measurements, and specific findings"
+    expected_min_score: 0.55
+    expected_max_score: 0.95
+    expected_min_grade: C
+    expected_max_grade: A
+    dimension_expectations:
+      substance:
+        min: 0.60
+        max: 1.0
+    text: |
+      Our load testing revealed that the API gateway handles 12,400 requests/second at
+      p50 latency of 3.2ms, degrading to 8,100 req/s at p99 of 45ms under sustained load.
+      Memory consumption plateaus at 2.1GB after approximately 4 hours of continuous
+      operation. The connection pool (configured at 150 connections) reached 89% utilization
+      during peak traffic windows (14:00-16:00 UTC on weekdays).
+
+      Key findings: (1) Enabling HTTP/2 multiplexing improved throughput by 31% for
+      clients making concurrent requests. (2) The gzip compression middleware adds 0.8ms
+      per request but reduces bandwidth by 67% on average. (3) Circuit breaker activation
+      at the 5-second timeout threshold prevented 94% of cascade failures during our
+      chaos testing sessions on March 12-14.
+
+  - id: hedged_fluff
+    description: "Content that hedges everything but says nothing concrete"
+    expected_min_score: 0.10
+    expected_max_score: 0.45
+    expected_min_grade: D
+    expected_max_grade: F
+    text: |
+      It could be argued that there are many factors to consider when evaluating
+      technology choices. Some experts suggest that the landscape is constantly changing,
+      and what works today might not work tomorrow. It's worth noting that different
+      organizations have different needs, and there's no one-size-fits-all solution.
+
+      At the end of the day, the best approach depends on your specific situation.
+      It's important to do your research and consider all the options before making
+      a decision. Many industry leaders recommend taking a holistic view and thinking
+      about the long-term implications of any technology investment.
