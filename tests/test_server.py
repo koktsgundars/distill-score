@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from distill.server import create_app
+flask = pytest.importorskip("flask", reason="Flask not installed (pip install distill-score[server])")
+
+from distill.server import create_app  # noqa: E402
 
 
 @pytest.fixture
