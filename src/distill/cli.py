@@ -189,28 +189,38 @@ def _display_highlights(report) -> None:
 @click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
+@click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragraphs: bool,
-          highlights: bool, profile: str | None):
+          highlights: bool, profile: str | None, auto_profile: bool):
     """Score content quality from a URL or file.
 
     SOURCE can be a URL (https://...) or a file path (- for stdin).
     """
     if as_json and as_csv:
         raise click.UsageError("--json and --csv are mutually exclusive.")
+    if auto_profile and profile:
+        raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
 
     scorer_names = scorers.split(",") if scorers else None
 
     label, text, metadata = _resolve_source(source)
 
-    pipeline = Pipeline(scorers=scorer_names, profile=profile)
+    pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
     report = pipeline.score(text, metadata=metadata, include_paragraphs=paragraphs)
+
+    if pipeline.detected_content_type and not as_json and not as_csv:
+        ct = pipeline.detected_content_type
+        console.print(f"[dim]Auto-detected: {ct.name} (confidence {ct.confidence:.2f})[/dim]")
 
     if as_json:
         import json
 
-        click.echo(json.dumps(
-            _report_to_dict(report, include_highlights=highlights), indent=2
-        ))
+        data = _report_to_dict(report, include_highlights=highlights)
+        if pipeline.detected_content_type:
+            ct = pipeline.detected_content_type
+            data["detected_type"] = ct.name
+            data["detected_confidence"] = round(ct.confidence, 3)
+        click.echo(json.dumps(data, indent=2))
     elif as_csv:
         from distill.export import report_to_csv_row, reports_to_csv
 
@@ -233,14 +243,17 @@ def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragra
 @click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
+@click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, as_json: bool,
-          as_csv: bool, profile: str | None):
+          as_csv: bool, profile: str | None, auto_profile: bool):
     """Score multiple sources and compare them.
 
     Accepts multiple URLs or file paths as arguments.
     """
     if as_json and as_csv:
         raise click.UsageError("--json and --csv are mutually exclusive.")
+    if auto_profile and profile:
+        raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
 
     all_sources = list(sources)
     if from_file:
@@ -264,7 +277,7 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
         source_keys.append(src)
 
     # Score
-    pipeline = Pipeline(scorers=scorer_names, profile=profile)
+    pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
     results = pipeline.score_batch(texts, metadata=metadata_list)
 
     if as_json:
@@ -353,18 +366,22 @@ def profiles():
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.option("--profile", "-p", help="Scorer profile", default=None)
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
+@click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 def compare(source_a: str, source_b: str, as_json: bool, profile: str | None,
-            scorers: str | None):
+            scorers: str | None, auto_profile: bool):
     """Compare quality of two sources side by side.
 
     SOURCE_A and SOURCE_B can be URLs or file paths (- for stdin on one).
     """
+    if auto_profile and profile:
+        raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
+
     scorer_names = scorers.split(",") if scorers else None
 
     label_a, text_a, meta_a = _resolve_source(source_a)
     label_b, text_b, meta_b = _resolve_source(source_b)
 
-    pipeline = Pipeline(scorers=scorer_names, profile=profile)
+    pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
     result = pipeline.compare(
         text_a, text_b,
         label_a=label_a, label_b=label_b,

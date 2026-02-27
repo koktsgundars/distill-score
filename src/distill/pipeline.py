@@ -157,11 +157,14 @@ class Pipeline:
         scorers: list[str] | None = None,
         weights: dict[str, float] | None = None,
         profile: str | None = None,
+        auto_profile: bool = False,
     ):
         if scorers is None:
             scorers = list(list_scorers().keys())
 
         self._scorers: list[Scorer] = [get_scorer(name) for name in scorers]
+        self._auto_profile = auto_profile and profile is None
+        self._detected_content_type = None
 
         # Profile provides base weights; explicit weights override
         if profile is not None:
@@ -176,6 +179,23 @@ class Pipeline:
 
         self._weight_overrides = profile_weights
 
+    @property
+    def detected_content_type(self):
+        """The auto-detected content type, if auto_profile was used. None otherwise."""
+        return self._detected_content_type
+
+    def _apply_auto_profile(self, text: str, metadata: dict | None = None) -> None:
+        """Detect content type and apply the corresponding profile weights."""
+        from distill.content_type import detect_content_type
+        from distill.profiles import get_profile
+
+        ct = detect_content_type(text, metadata)
+        self._detected_content_type = ct
+        if ct.name != "default":
+            profile_weights = dict(get_profile(ct.name).weights)
+            profile_weights.update(self._weight_overrides)
+            self._weight_overrides = profile_weights
+
     def score(
         self,
         text: str,
@@ -185,6 +205,9 @@ class Pipeline:
         """Run all configured scorers and produce a quality report."""
         if not text or not text.strip():
             return QualityReport(overall_score=0.0, text_length=0, word_count=0)
+
+        if self._auto_profile:
+            self._apply_auto_profile(text, metadata)
 
         results: list[ScoreResult] = []
         total_weight = 0.0
