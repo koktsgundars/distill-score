@@ -254,6 +254,23 @@ class TestBatch:
         assert abs(batch_results[0][1].overall_score - individual_expert.overall_score) < 0.001
         assert abs(batch_results[1][1].overall_score - individual_slop.overall_score) < 0.001
 
+    def test_batch_order_preserved(self):
+        """Parallel batch scoring should preserve input order."""
+        pipeline = Pipeline()
+        texts = [
+            ("expert", EXPERT_CONTENT),
+            ("slop", AI_SLOP),
+            ("moderate", MODERATE_CONTENT),
+            ("expert2", EXPERT_CONTENT),
+        ]
+        results = pipeline.score_batch(texts)
+
+        assert len(results) == 4
+        assert results[0][0] == "expert"
+        assert results[1][0] == "slop"
+        assert results[2][0] == "moderate"
+        assert results[3][0] == "expert2"
+
 
 class TestProfiles:
     def test_profile_applies_weights(self):

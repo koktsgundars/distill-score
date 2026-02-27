@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 
 @dataclass
@@ -72,6 +73,80 @@ _OPINION_PATTERNS = [
 
 _CONFIDENCE_THRESHOLD = 0.15
 
+# --- URL signal patterns ---
+
+_NEWS_DOMAINS = {
+    "reuters.com", "bbc.com", "bbc.co.uk", "nytimes.com", "washingtonpost.com",
+    "theguardian.com", "apnews.com", "bloomberg.com", "cnn.com", "npr.org",
+    "aljazeera.com", "politico.com", "axios.com",
+}
+
+_NEWS_URL_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"/news/", r"/politics/", r"/world/", r"/breaking/",
+        r"/business/", r"/economy/", r"/markets/",
+    ]
+]
+
+_TECHNICAL_DOMAINS = {
+    "github.com", "stackoverflow.com", "arxiv.org", "developer.mozilla.org",
+    "docs.python.org", "kubernetes.io", "docs.docker.com",
+}
+
+_TECHNICAL_URL_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"/docs/", r"/engineering/", r"/api/", r"/technical/",
+        r"/blog/.*(?:engineering|infrastructure|scale|deploy|migration)",
+    ]
+]
+
+_OPINION_URL_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"/opinion/", r"/editorial/", r"/column/", r"/commentary/", r"/op-ed/",
+    ]
+]
+
+_URL_BOOST = 0.3
+
+
+def _url_signals(url: str) -> dict[str, float]:
+    """Extract content-type signal boosts from a URL.
+
+    Returns a dict mapping content type names to boost values (0.0 or _URL_BOOST).
+    """
+    boosts: dict[str, float] = {"technical": 0.0, "news": 0.0, "opinion": 0.0}
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return boosts
+
+    domain = parsed.netloc.lower().lstrip("www.")
+    path = parsed.path.lower()
+
+    # Domain signals
+    if domain in _NEWS_DOMAINS:
+        boosts["news"] = _URL_BOOST
+    if domain in _TECHNICAL_DOMAINS:
+        boosts["technical"] = _URL_BOOST
+
+    # Path signals
+    for pattern in _NEWS_URL_PATTERNS:
+        if pattern.search(path):
+            boosts["news"] = _URL_BOOST
+            break
+
+    for pattern in _TECHNICAL_URL_PATTERNS:
+        if pattern.search(path):
+            boosts["technical"] = _URL_BOOST
+            break
+
+    for pattern in _OPINION_URL_PATTERNS:
+        if pattern.search(path):
+            boosts["opinion"] = _URL_BOOST
+            break
+
+    return boosts
+
 
 def detect_content_type(text: str, metadata: dict | None = None) -> ContentType:
     """Detect the content type of a text and return the best-matching profile.
@@ -91,6 +166,11 @@ def detect_content_type(text: str, metadata: dict | None = None) -> ContentType:
     if word_count == 0:
         return ContentType(name="default", confidence=0.0)
 
+    # Get URL-based boosts if metadata contains a url
+    url_boosts: dict[str, float] = {"technical": 0.0, "news": 0.0, "opinion": 0.0}
+    if metadata and metadata.get("url"):
+        url_boosts = _url_signals(metadata["url"])
+
     scores: dict[str, tuple[float, dict[str, int]]] = {}
 
     for label, patterns in [
@@ -108,6 +188,9 @@ def detect_content_type(text: str, metadata: dict | None = None) -> ContentType:
 
         # Normalize: hits per 100 words, capped at 1.0
         density = min(total_hits / (word_count / 100), 1.0) if word_count > 0 else 0.0
+        # Apply URL boost (only if text already has some signal)
+        if density > 0 and url_boosts.get(label, 0.0) > 0:
+            density = min(density + url_boosts[label], 1.0)
         scores[label] = (density, signal_counts)
 
     # Pick winner

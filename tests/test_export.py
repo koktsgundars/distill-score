@@ -1,14 +1,15 @@
-"""Tests for CSV export functionality."""
+"""Tests for CSV and JSONL export functionality."""
 
 from __future__ import annotations
 
 import csv
 import io
+import json
 
 from click.testing import CliRunner
 
 from distill.cli import main
-from distill.export import report_to_csv_row, reports_to_csv
+from distill.export import report_to_csv_row, report_to_jsonl_line, reports_to_csv
 from distill.pipeline import Pipeline
 
 
@@ -158,4 +159,67 @@ class TestCsvCli:
 
         runner = CliRunner()
         result = runner.invoke(main, ["batch", "--csv", "--json", str(f)])
+        assert result.exit_code != 0
+
+
+class TestJsonlExport:
+    def test_jsonl_line_valid_json(self):
+        pipeline = Pipeline()
+        report = pipeline.score(SAMPLE_TEXT)
+        line = report_to_jsonl_line(report)
+
+        parsed = json.loads(line)
+        assert "overall_score" in parsed
+        assert "grade" in parsed
+        assert "\n" not in line
+
+    def test_jsonl_line_with_source(self):
+        pipeline = Pipeline()
+        report = pipeline.score(SAMPLE_TEXT)
+        line = report_to_jsonl_line(report, source="test.txt")
+
+        parsed = json.loads(line)
+        assert parsed["source"] == "test.txt"
+
+    def test_jsonl_line_with_highlights(self):
+        pipeline = Pipeline()
+        report = pipeline.score(SAMPLE_TEXT)
+        line = report_to_jsonl_line(report, include_highlights=True)
+
+        parsed = json.loads(line)
+        assert "dimensions" in parsed
+
+
+class TestJsonlCli:
+    def test_batch_jsonl(self, tmp_path):
+        f1 = tmp_path / "a.txt"
+        f2 = tmp_path / "b.txt"
+        f1.write_text(SAMPLE_TEXT)
+        f2.write_text(SAMPLE_TEXT)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["batch", "--jsonl", str(f1), str(f2)])
+
+        assert result.exit_code == 0
+        lines = [ln for ln in result.output.strip().split("\n") if ln]
+        assert len(lines) == 2
+        for line in lines:
+            parsed = json.loads(line)
+            assert "overall_score" in parsed
+            assert "source" in parsed
+
+    def test_batch_jsonl_json_mutually_exclusive(self, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(SAMPLE_TEXT)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["batch", "--jsonl", "--json", str(f)])
+        assert result.exit_code != 0
+
+    def test_batch_jsonl_csv_mutually_exclusive(self, tmp_path):
+        f = tmp_path / "test.txt"
+        f.write_text(SAMPLE_TEXT)
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["batch", "--jsonl", "--csv", str(f)])
         assert result.exit_code != 0

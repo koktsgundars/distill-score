@@ -240,18 +240,20 @@ def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragra
               help="Read sources from a file (one per line)")
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--jsonl", "as_jsonl", is_flag=True, help="Output as newline-delimited JSON")
 @click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, as_json: bool,
-          as_csv: bool, profile: str | None, auto_profile: bool):
+          as_jsonl: bool, as_csv: bool, profile: str | None, auto_profile: bool):
     """Score multiple sources and compare them.
 
     Accepts multiple URLs or file paths as arguments.
     """
-    if as_json and as_csv:
-        raise click.UsageError("--json and --csv are mutually exclusive.")
+    output_flags = sum([as_json, as_jsonl, as_csv])
+    if output_flags > 1:
+        raise click.UsageError("--json, --jsonl, and --csv are mutually exclusive.")
     if auto_profile and profile:
         raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
 
@@ -266,12 +268,21 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
 
     scorer_names = scorers.split(",") if scorers else None
 
-    # Resolve all sources
+    # Resolve all sources in parallel
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _resolve(src):
+        return (src, _resolve_source(src, quiet=True))
+
     texts: list[tuple[str, str]] = []
     metadata_list: list[dict | None] = []
     source_keys: list[str] = []
-    for src in all_sources:
-        label, text, meta = _resolve_source(src, quiet=not as_json)
+
+    max_workers = min(len(all_sources), 8)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        resolved = list(executor.map(_resolve, all_sources))
+
+    for src, (label, text, meta) in resolved:
         texts.append((label, text))
         metadata_list.append(meta)
         source_keys.append(src)
@@ -280,7 +291,12 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
     pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
     results = pipeline.score_batch(texts, metadata=metadata_list)
 
-    if as_json:
+    if as_jsonl:
+        from distill.export import report_to_jsonl_line
+
+        for i, (label, report) in enumerate(results):
+            click.echo(report_to_jsonl_line(report, source=source_keys[i]))
+    elif as_json:
         import json
 
         data = [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -279,21 +280,31 @@ class Pipeline:
     ) -> list[tuple[str, QualityReport]]:
         """Score multiple texts and return labeled reports.
 
+        Uses thread-based parallelism for improved throughput.
+
         Args:
             texts: List of (label, text) pairs.
             metadata: Per-item metadata list, a single dict applied to all, or None.
 
         Returns:
-            List of (label, QualityReport) pairs.
+            List of (label, QualityReport) pairs in original order.
         """
-        results = []
-        for i, (label, text) in enumerate(texts):
+        def _score_one(i: int) -> tuple[int, str, QualityReport]:
+            label, text = texts[i]
             if isinstance(metadata, list):
                 item_meta = metadata[i] if i < len(metadata) else None
             else:
                 item_meta = metadata
-            results.append((label, self.score(text, item_meta)))
-        return results
+            return (i, label, self.score(text, item_meta))
+
+        max_workers = min(len(texts), 8) if texts else 1
+        results: list[tuple[int, str, QualityReport]] = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(executor.map(_score_one, range(len(texts))))
+
+        # Sort by original index to preserve order
+        results.sort(key=lambda x: x[0])
+        return [(label, report) for _, label, report in results]
 
     def compare(
         self,

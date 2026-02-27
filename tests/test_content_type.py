@@ -87,6 +87,73 @@ def test_content_type_dataclass():
     assert ct.signals == {"code": 3}
 
 
+# --- URL-aware detection ---
+
+# Mild technical text — detectable but not dominant
+_MILD_TECHNICAL = """
+We updated the configuration settings and ran some tests. The deployment
+process involved rebuilding the Docker images. Performance was measured
+before and after the change.
+"""
+
+# Mild news text
+_MILD_NEWS = """
+According to sources familiar with the situation, the announcement was made
+on Tuesday. The spokesperson confirmed the details of the plan.
+"""
+
+# Mild opinion text
+_MILD_OPINION = """
+I think the current approach has some problems. However, there are valid
+arguments on both sides. Personally, I'd suggest considering alternatives.
+"""
+
+
+def test_url_boost_technical():
+    """URL signals should boost technical detection for text with some signals."""
+    without_url = detect_content_type(_MILD_TECHNICAL)
+    with_url = detect_content_type(
+        _MILD_TECHNICAL, metadata={"url": "https://engineering.example.com/docs/migration"}
+    )
+    # URL boost should increase confidence if technical was already detected
+    if without_url.name == "technical":
+        assert with_url.confidence >= without_url.confidence
+
+
+def test_url_boost_news():
+    """News URL signals should boost news detection."""
+    with_url = detect_content_type(
+        _MILD_NEWS, metadata={"url": "https://reuters.com/world/story-123"}
+    )
+    assert with_url.name == "news"
+
+
+def test_url_boost_opinion():
+    """Opinion URL signals should boost opinion detection."""
+    with_url = detect_content_type(
+        _MILD_OPINION, metadata={"url": "https://example.com/opinion/hot-take"}
+    )
+    assert with_url.name == "opinion"
+
+
+def test_url_alone_does_not_trigger():
+    """URL signals alone should not trigger detection without text signals."""
+    result = detect_content_type(GENERIC_TEXT, metadata={"url": "https://reuters.com/news/article"})
+    assert result.name == "default"
+
+
+def test_metadata_without_url():
+    """Metadata dict without 'url' key should not cause errors."""
+    result = detect_content_type(TECHNICAL_TEXT, metadata={"title": "Some Title"})
+    assert result.name == "technical"
+
+
+def test_metadata_none_still_works():
+    """None metadata should work as before."""
+    result = detect_content_type(TECHNICAL_TEXT, metadata=None)
+    assert result.name == "technical"
+
+
 # --- Pipeline integration ---
 
 def test_auto_profile_changes_weights():

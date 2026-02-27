@@ -1,9 +1,10 @@
-"""CSV export utilities for distill quality reports."""
+"""CSV and JSONL export utilities for distill quality reports."""
 
 from __future__ import annotations
 
 import csv
 import io
+import json
 from typing import IO
 
 from distill.pipeline import QualityReport
@@ -61,3 +62,24 @@ def reports_to_csv(
         writer.writeheader()
         writer.writerows(rows)
         return None
+
+
+def report_to_jsonl_line(
+    report: QualityReport,
+    source: str | None = None,
+    include_highlights: bool = False,
+) -> str:
+    """Convert a QualityReport to a single JSON string (one JSONL line).
+
+    Args:
+        report: The quality report to serialize.
+        source: Optional source label.
+        include_highlights: Whether to include matched highlights.
+
+    Returns:
+        A single-line JSON string (no trailing newline).
+    """
+    data = report.to_dict(include_highlights=include_highlights)
+    if source is not None:
+        data = {"source": source, **data}
+    return json.dumps(data, separators=(",", ":"))

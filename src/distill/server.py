@@ -7,6 +7,8 @@ from flask import Flask, jsonify, request
 from distill import __version__
 from distill.extractors import extract_from_html
 from distill.pipeline import Pipeline
+from distill.profiles import list_profiles as _list_profiles
+from distill.scorer import list_scorers as _list_scorers
 
 
 def create_app() -> Flask:
@@ -48,8 +50,52 @@ def create_app() -> Flask:
         if not text or not text.strip():
             return jsonify({"error": "Empty content"}), 400
 
-        pipeline = Pipeline()
-        report = pipeline.score(text, metadata=metadata)
-        return jsonify(report.to_dict())
+        # Pipeline options
+        profile = data.get("profile")
+        auto_profile = bool(data.get("auto_profile", False))
+        highlights = bool(data.get("highlights", False))
+        paragraphs = bool(data.get("paragraphs", False))
+
+        scorers_opt = data.get("scorers")
+        scorer_names = None
+        if scorers_opt:
+            if isinstance(scorers_opt, str):
+                scorer_names = [s.strip() for s in scorers_opt.split(",")]
+            elif isinstance(scorers_opt, list):
+                scorer_names = scorers_opt
+
+        # Validate profile name
+        if profile:
+            from distill.profiles import get_profile
+            try:
+                get_profile(profile)
+            except KeyError as e:
+                return jsonify({"error": str(e)}), 400
+
+        try:
+            pipeline = Pipeline(
+                scorers=scorer_names, profile=profile, auto_profile=auto_profile,
+            )
+        except KeyError as e:
+            return jsonify({"error": str(e)}), 400
+
+        report = pipeline.score(text, metadata=metadata, include_paragraphs=paragraphs)
+        result = report.to_dict(include_highlights=highlights)
+
+        # Include auto-detection info
+        if auto_profile and pipeline.detected_content_type:
+            ct = pipeline.detected_content_type
+            result["detected_type"] = ct.name
+            result["detected_confidence"] = round(ct.confidence, 3)
+
+        return jsonify(result)
+
+    @app.route("/scorers", methods=["GET"])
+    def scorers():
+        return jsonify(_list_scorers())
+
+    @app.route("/profiles", methods=["GET"])
+    def profiles():
+        return jsonify(_list_profiles())
 
     return app
