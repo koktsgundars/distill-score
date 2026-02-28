@@ -11,6 +11,7 @@ __version__ = "0.1.0"
 # Import scorers to trigger registration
 import distill.scorers  # noqa: F401
 
+from distill.cache import ScoreCache
 from distill.content_type import ContentType, detect_content_type
 from distill.extractors import extract_from_html, extract_from_url
 from distill.pipeline import (
@@ -154,6 +155,7 @@ def compare(
 __all__ = [
     "ContentType",
     "ComparisonResult",
+    "ScoreCache",
     "DimensionDelta",
     "MatchHighlight",
     "ParagraphScore",

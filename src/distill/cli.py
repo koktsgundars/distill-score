@@ -178,6 +178,44 @@ def _display_highlights(report) -> None:
         console.print()
 
 
+def _display_report_from_dict(data: dict, source: str = "") -> None:
+    """Rich display of a cached report dict (same layout as _display_report)."""
+    grade = data.get("grade", "?")
+    label = data.get("label", "")
+    overall_score = data.get("overall_score", 0.0)
+    word_count = data.get("word_count", 0)
+
+    grade_colors = {"A": "green", "B": "cyan", "C": "yellow", "D": "red", "F": "red bold"}
+    grade_style = grade_colors.get(grade, "white")
+
+    title = "Quality Report"
+    if source:
+        title += f" - {source[:60]}"
+
+    overall = Text()
+    overall.append("\n  Grade: ", style="bold")
+    overall.append(f"{grade}", style=f"bold {grade_style}")
+    overall.append(f"  ({label})\n", style="dim")
+    overall.append("  Overall: ")
+    overall.append(_score_bar(overall_score))
+    overall.append(f"\n  Words: {word_count:,}\n")
+
+    console.print(Panel(overall, title=title, border_style="blue"))
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("Dimension", style="cyan")
+    table.add_column("Score", min_width=25)
+    table.add_column("Details", style="dim")
+
+    for name, dim in data.get("dimensions", {}).items():
+        table.add_row(
+            name,
+            _score_bar(dim["score"]),
+            dim.get("explanation", "")[:80],
+        )
+
+    console.print(table)
+    console.print()
 
 
 @main.command()
@@ -190,8 +228,9 @@ def _display_highlights(report) -> None:
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
+@click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
 def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragraphs: bool,
-          highlights: bool, profile: str | None, auto_profile: bool):
+          highlights: bool, profile: str | None, auto_profile: bool, no_cache: bool):
     """Score content quality from a URL or file.
 
     SOURCE can be a URL (https://...) or a file path (- for stdin).
@@ -205,8 +244,38 @@ def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragra
 
     label, text, metadata = _resolve_source(source)
 
+    # Cache lookup
+    from distill.cache import ScoreCache
+
+    cache = ScoreCache()
+    cached = None
+    if not no_cache:
+        cached = cache.get(text, profile=profile, scorer_names=scorer_names)
+
+    if cached is not None:
+        if not as_json and not as_csv:
+            console.print("[dim]Using cached result[/dim]")
+        if as_json:
+            import json
+
+            click.echo(json.dumps(cached, indent=2))
+        elif as_csv:
+            from distill.export import reports_to_csv
+
+            row = {"source": source, **cached}
+            click.echo(reports_to_csv([row]), nl=False)
+        else:
+            _display_report_from_dict(cached, source=label)
+        return
+
     pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
     report = pipeline.score(text, metadata=metadata, include_paragraphs=paragraphs)
+
+    # Save to cache
+    effective_scorer_names = scorer_names or [s.name for s in pipeline._scorers]
+    report_dict = report.to_dict(include_highlights=True)
+    cache.put(text, report_dict, source=source, profile=profile,
+              scorer_names=effective_scorer_names, metadata=metadata)
 
     if pipeline.detected_content_type and not as_json and not as_csv:
         ct = pipeline.detected_content_type
@@ -245,8 +314,10 @@ def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragra
 @click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
               default=None)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
+@click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
 def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, as_json: bool,
-          as_jsonl: bool, as_csv: bool, profile: str | None, auto_profile: bool):
+          as_jsonl: bool, as_csv: bool, profile: str | None, auto_profile: bool,
+          no_cache: bool):
     """Score multiple sources and compare them.
 
     Accepts multiple URLs or file paths as arguments.
@@ -287,60 +358,118 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
         metadata_list.append(meta)
         source_keys.append(src)
 
-    # Score
+    # Cache: check for hits per item
+    from distill.cache import ScoreCache
+
+    cache = ScoreCache()
+
+    # Score (with per-item cache check)
     pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
-    results = pipeline.score_batch(texts, metadata=metadata_list)
+    effective_scorer_names = scorer_names or list(
+        s.name for s in pipeline._scorers
+    )
+
+    results: list[tuple[str, object]] = []
+    to_score_indices: list[int] = []
+    to_score_texts: list[tuple[str, str]] = []
+    to_score_metadata: list[dict | None] = []
+
+    for i, (label_text, meta) in enumerate(zip(texts, metadata_list)):
+        label, text = label_text
+        if not no_cache:
+            cached = cache.get(text, profile=profile, scorer_names=effective_scorer_names)
+            if cached is not None:
+                results.append((i, label, cached, True))  # type: ignore[arg-type]
+                continue
+        to_score_indices.append(i)
+        to_score_texts.append((label, text))
+        to_score_metadata.append(meta)
+
+    if to_score_texts:
+        scored = pipeline.score_batch(to_score_texts, metadata=to_score_metadata)
+        for j, (label, report) in enumerate(scored):
+            idx = to_score_indices[j]
+            text = texts[idx][1]
+            report_dict = report.to_dict(include_highlights=True)
+            cache.put(text, report_dict, source=source_keys[idx], profile=profile,
+                      scorer_names=effective_scorer_names, metadata=metadata_list[idx])
+            results.append((idx, label, report, False))  # type: ignore[arg-type]
+
+    # Sort back to original order
+    results.sort(key=lambda x: x[0])  # type: ignore[index]
+
+    # Unpack — for cached items we have dicts, for scored items we have QualityReport
+    final_results: list[tuple[str, object, bool]] = [
+        (label, data, is_cached) for _, label, data, is_cached in results  # type: ignore[misc]
+    ]
 
     if as_jsonl:
-        from distill.export import report_to_jsonl_line
+        import json as json_mod
 
-        for i, (label, report) in enumerate(results):
-            click.echo(report_to_jsonl_line(report, source=source_keys[i]))
+        for i, (label, data, is_cached) in enumerate(final_results):
+            if is_cached:
+                row_data = {"source": source_keys[i], **data}
+                click.echo(json_mod.dumps(row_data))
+            else:
+                from distill.export import report_to_jsonl_line
+                click.echo(report_to_jsonl_line(data, source=source_keys[i]))
     elif as_json:
         import json
 
-        data = [
-            _report_to_dict(report, source=source_keys[i])
-            for i, (label, report) in enumerate(results)
-        ]
-        click.echo(json.dumps(data, indent=2))
+        out = []
+        for i, (label, data, is_cached) in enumerate(final_results):
+            if is_cached:
+                out.append({"source": source_keys[i], **data})
+            else:
+                out.append(_report_to_dict(data, source=source_keys[i]))
+        click.echo(json.dumps(out, indent=2))
     elif as_csv:
         from distill.export import report_to_csv_row, reports_to_csv
 
-        rows = [
-            report_to_csv_row(report, source=source_keys[i])
-            for i, (label, report) in enumerate(results)
-        ]
+        rows = []
+        for i, (label, data, is_cached) in enumerate(final_results):
+            if is_cached:
+                rows.append({"source": source_keys[i], **data})
+            else:
+                rows.append(report_to_csv_row(data, source=source_keys[i]))
         click.echo(reports_to_csv(rows), nl=False)
     else:
         # Show individual reports
-        for label, report in results:
-            _display_report(report, source=label)
+        for i, (label, data, is_cached) in enumerate(final_results):
+            if is_cached:
+                _display_report_from_dict(data, source=label)
+            else:
+                _display_report(data, source=label)
 
-        # Ranked summary table
-        ranked = sorted(
-            [(source_keys[i], label, report) for i, (label, report) in enumerate(results)],
-            key=lambda x: x[2].overall_score,
-            reverse=True,
-        )
+        # Ranked summary table — normalize to dicts for uniform access
+        ranked_data = []
+        for i, (label, data, is_cached) in enumerate(final_results):
+            if is_cached:
+                d = data
+            else:
+                d = data.to_dict()
+            ranked_data.append((source_keys[i], label, d))
+
+        ranked_data.sort(key=lambda x: x[2]["overall_score"], reverse=True)
 
         table = Table(title="Ranked Summary", show_header=True, header_style="bold")
         table.add_column("Rank", style="bold", justify="right", width=4)
         table.add_column("Source", max_width=40)
         table.add_column("Overall", justify="right")
         table.add_column("Grade", justify="center")
-        for sr in results[0][1].scores:
-            table.add_column(sr.name.title(), justify="right")
+        first_dims = ranked_data[0][2].get("dimensions", {})
+        for dim_name in first_dims:
+            table.add_column(dim_name.title(), justify="right")
 
-        for rank, (src, label, report) in enumerate(ranked, 1):
+        for rank, (src, label, d) in enumerate(ranked_data, 1):
             row = [
                 str(rank),
                 src[:40],
-                f"{report.overall_score:.3f}",
-                report.grade,
+                f"{d['overall_score']:.3f}",
+                d["grade"],
             ]
-            for sr in report.scores:
-                row.append(f"{sr.score:.3f}")
+            for dim_name, dim_data in d.get("dimensions", {}).items():
+                row.append(f"{dim_data['score']:.3f}")
             table.add_row(*row)
 
         console.print(table)
@@ -537,6 +666,115 @@ def demo():
     console.print("[bold green]Sample B: Expert practitioner content[/bold green]")
     report_b = pipeline.score(expert_content)
     _display_report(report_b, "Expert practitioner content")
+
+
+@main.group()
+def history():
+    """Browse and manage score history."""
+    pass
+
+
+@history.command(name="show")
+@click.option("--limit", "-n", default=20, help="Number of entries to show (default: 20)")
+@click.option("--source", help="Filter by source substring")
+def history_show(limit: int, source: str | None):
+    """Show recent scoring history."""
+    from distill.cache import ScoreCache
+
+    cache = ScoreCache()
+    entries = cache.history(source=source, limit=limit)
+
+    if not entries:
+        console.print("[dim]No history entries found.[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("ID", style="dim", justify="right")
+    table.add_column("Source", max_width=40)
+    table.add_column("Profile", style="cyan")
+    table.add_column("Score", justify="right")
+    table.add_column("Grade", justify="center")
+    table.add_column("Words", justify="right")
+    table.add_column("Scored At", style="dim")
+
+    for entry in entries:
+        table.add_row(
+            str(entry["id"]),
+            (entry["source"] or "")[:40],
+            entry["profile"],
+            f"{entry['overall_score']:.3f}",
+            entry["grade"],
+            str(entry["word_count"]),
+            entry["scored_at"][:19],
+        )
+
+    console.print(table)
+
+
+@history.command(name="clear")
+@click.option("--before", help="Delete entries scored before this ISO date")
+@click.option("--source", help="Filter by source substring")
+@click.confirmation_option(prompt="Are you sure you want to delete history entries?")
+def history_clear(before: str | None, source: str | None):
+    """Clear scoring history."""
+    from distill.cache import ScoreCache
+
+    cache = ScoreCache()
+    deleted = cache.clear(before=before, source=source)
+    console.print(f"Deleted {deleted} history entries.")
+
+
+@history.command(name="stats")
+def history_stats():
+    """Show cache statistics."""
+    from distill.cache import ScoreCache
+
+    cache = ScoreCache()
+    stats = cache.stats()
+
+    console.print("[bold]Cache Statistics[/bold]")
+    console.print(f"  Entries:  {stats['count']}")
+    console.print(f"  DB size:  {stats['size_bytes']:,} bytes")
+    console.print(f"  Oldest:   {stats['oldest'] or 'N/A'}")
+    console.print(f"  Newest:   {stats['newest'] or 'N/A'}")
+
+
+@history.command(name="export")
+@click.option("--json", "as_json", is_flag=True, help="Export as JSON")
+@click.option("--csv", "as_csv", is_flag=True, help="Export as CSV")
+@click.option("--limit", "-n", default=100, help="Maximum entries to export (default: 100)")
+@click.option("--source", help="Filter by source substring")
+def history_export(as_json: bool, as_csv: bool, limit: int, source: str | None):
+    """Export scoring history."""
+    import json as json_mod
+
+    if as_json and as_csv:
+        raise click.UsageError("--json and --csv are mutually exclusive.")
+
+    from distill.cache import ScoreCache
+
+    cache = ScoreCache()
+    entries = cache.history(source=source, limit=limit)
+
+    if not entries:
+        console.print("[dim]No history entries to export.[/dim]")
+        return
+
+    if as_csv:
+        import csv
+        import io
+
+        buf = io.StringIO()
+        fieldnames = ["id", "source", "profile", "overall_score", "grade", "word_count",
+                       "scored_at"]
+        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        for entry in entries:
+            writer.writerow({k: entry[k] for k in fieldnames})
+        click.echo(buf.getvalue(), nl=False)
+    else:
+        # Default to JSON
+        click.echo(json_mod.dumps(entries, indent=2))
 
 
 if __name__ == "__main__":
