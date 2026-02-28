@@ -150,9 +150,13 @@ def _display_paragraphs(report) -> None:
     bottom = [p for p in bottom if p not in top]
 
     def _para_row(ps) -> str:
+        role_tag = f"[{ps.position_role}]"
         dims = "  ".join(f"{r.name[:3]}={r.score:.2f}" for r in ps.scores)
         preview = ps.text_preview.replace("\n", " ")
-        return f'  \u00b6{ps.index + 1:<3} "{preview[:55]:<55}"  {ps.overall_score:.2f}  {dims}'
+        return (
+            f'  \u00b6{ps.index + 1:<3} {role_tag:<18}'
+            f' "{preview[:50]:<50}"  {ps.overall_score:.2f}  {dims}'
+        )
 
     console.print("[bold green]Strongest sections:[/bold green]")
     for ps in top:
@@ -162,6 +166,11 @@ def _display_paragraphs(report) -> None:
         console.print("\n[bold red]Weakest sections:[/bold red]")
         for ps in reversed(bottom):
             console.print(_para_row(ps))
+
+    # Show weighted paragraph score
+    wps = report.weighted_paragraph_score
+    if wps is not None:
+        console.print(f"\n  Weighted paragraph score: [bold]{wps:.3f}[/bold]")
 
     console.print()
 

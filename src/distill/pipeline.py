@@ -13,6 +13,30 @@ _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 _MIN_PARAGRAPH_WORDS = 30
 
 
+def _compute_position_weights(count: int) -> list[tuple[float, str]]:
+    """Compute U-shaped position weights and role labels for *count* paragraphs.
+
+    Returns a list of (weight, role) tuples — one per paragraph.
+    Weight curve: intro 1.5, near-intro 1.1, body 1.0, near-conclusion 1.1, conclusion 1.3.
+    """
+    if count == 0:
+        return []
+    if count == 1:
+        return [(1.5, "intro")]
+    if count == 2:
+        return [(1.5, "intro"), (1.3, "conclusion")]
+    if count == 3:
+        return [(1.5, "intro"), (1.0, "body"), (1.3, "conclusion")]
+
+    # 4+ paragraphs: intro, near-intro, ..body.., near-conclusion, conclusion
+    weights: list[tuple[float, str]] = [(1.5, "intro"), (1.1, "near-intro")]
+    body_count = count - 4  # middle paragraphs
+    weights.extend((1.0, "body") for _ in range(body_count))
+    weights.append((1.1, "near-conclusion"))
+    weights.append((1.3, "conclusion"))
+    return weights
+
+
 @dataclass
 class ParagraphScore:
     """Score for an individual paragraph."""
@@ -22,6 +46,8 @@ class ParagraphScore:
     overall_score: float
     word_count: int
     scores: list[ScoreResult] = field(default_factory=list)
+    position_weight: float = 1.0
+    position_role: str = "body"
 
     def to_dict(self) -> dict:
         """Convert to a JSON-serializable dict."""
@@ -31,6 +57,8 @@ class ParagraphScore:
             "overall_score": round(self.overall_score, 3),
             "word_count": self.word_count,
             "dimensions": {r.name: round(r.score, 3) for r in self.scores},
+            "position_weight": self.position_weight,
+            "position_role": self.position_role,
         }
 
 
@@ -57,6 +85,17 @@ class QualityReport:
             return "D"
         else:
             return "F"
+
+    @property
+    def weighted_paragraph_score(self) -> float | None:
+        """Position-weighted paragraph score, or None if no paragraphs."""
+        if not self.paragraph_scores:
+            return None
+        weighted_sum = sum(
+            ps.overall_score * ps.position_weight for ps in self.paragraph_scores
+        )
+        weight_total = sum(ps.position_weight for ps in self.paragraph_scores)
+        return weighted_sum / weight_total if weight_total > 0 else None
 
     @property
     def label(self) -> str:
@@ -97,6 +136,9 @@ class QualityReport:
             data["dimensions"][r.name] = dim
         if self.paragraph_scores:
             data["paragraphs"] = [ps.to_dict() for ps in self.paragraph_scores]
+            wps = self.weighted_paragraph_score
+            if wps is not None:
+                data["weighted_paragraph_score"] = round(wps, 3)
         return data
 
 
@@ -274,6 +316,12 @@ class Pipeline:
                 word_count=len(words),
                 scores=para_results,
             ))
+
+        # Assign position weights based on structural role
+        pos_weights = _compute_position_weights(len(scored))
+        for ps, (weight, role) in zip(scored, pos_weights):
+            ps.position_weight = weight
+            ps.position_role = role
 
         return scored
 

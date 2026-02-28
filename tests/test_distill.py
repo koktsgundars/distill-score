@@ -200,6 +200,45 @@ Too brief to score.
 """
 
 
+class TestPositionWeights:
+    """Tests for _compute_position_weights helper."""
+
+    def test_zero_paragraphs(self):
+        from distill.pipeline import _compute_position_weights
+        assert _compute_position_weights(0) == []
+
+    def test_one_paragraph(self):
+        from distill.pipeline import _compute_position_weights
+        weights = _compute_position_weights(1)
+        assert len(weights) == 1
+        assert weights[0] == (1.5, "intro")
+
+    def test_two_paragraphs(self):
+        from distill.pipeline import _compute_position_weights
+        weights = _compute_position_weights(2)
+        assert len(weights) == 2
+        assert weights[0] == (1.5, "intro")
+        assert weights[1] == (1.3, "conclusion")
+
+    def test_three_paragraphs(self):
+        from distill.pipeline import _compute_position_weights
+        weights = _compute_position_weights(3)
+        assert len(weights) == 3
+        assert weights[0] == (1.5, "intro")
+        assert weights[1] == (1.0, "body")
+        assert weights[2] == (1.3, "conclusion")
+
+    def test_five_paragraphs(self):
+        from distill.pipeline import _compute_position_weights
+        weights = _compute_position_weights(5)
+        assert len(weights) == 5
+        assert weights[0] == (1.5, "intro")
+        assert weights[1] == (1.1, "near-intro")
+        assert weights[2] == (1.0, "body")
+        assert weights[3] == (1.1, "near-conclusion")
+        assert weights[4] == (1.3, "conclusion")
+
+
 class TestParagraphs:
     def test_paragraph_breakdown(self):
         pipeline = Pipeline()
@@ -230,6 +269,39 @@ class TestParagraphs:
         pipeline = Pipeline()
         report = pipeline.score(MULTI_PARAGRAPH)
         assert report.paragraph_scores == []
+
+    def test_position_weights_assigned(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH, include_paragraphs=True)
+        assert len(report.paragraph_scores) > 0
+        # First paragraph should be intro
+        assert report.paragraph_scores[0].position_role == "intro"
+        assert report.paragraph_scores[0].position_weight == 1.5
+        # Last paragraph should be conclusion
+        assert report.paragraph_scores[-1].position_role == "conclusion"
+        assert report.paragraph_scores[-1].position_weight == 1.3
+
+    def test_weighted_paragraph_score_property(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH, include_paragraphs=True)
+        wps = report.weighted_paragraph_score
+        assert wps is not None
+        assert 0.0 <= wps <= 1.0
+
+    def test_weighted_paragraph_score_none_without_paragraphs(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH)
+        assert report.weighted_paragraph_score is None
+
+    def test_paragraph_serialization_includes_position(self):
+        pipeline = Pipeline()
+        report = pipeline.score(MULTI_PARAGRAPH, include_paragraphs=True)
+        d = report.to_dict()
+        assert "paragraphs" in d
+        assert "weighted_paragraph_score" in d
+        for para in d["paragraphs"]:
+            assert "position_weight" in para
+            assert "position_role" in para
 
 
 class TestBatch:
