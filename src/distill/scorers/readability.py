@@ -14,6 +14,7 @@ import re
 import math
 from typing import ClassVar
 
+from distill.confidence import compute_confidence_interval
 from distill.scorer import ScoreResult, Scorer, register
 
 
@@ -161,10 +162,17 @@ class ReadabilityScorer(Scorer):
 
         score = max(0.0, min(1.0, score))
 
+        signal_count = len(sentences) + structural_elements + para_count
+        ci_lower, ci_upper = compute_confidence_interval(
+            score, word_count, signal_count, signal_types=5,
+        )
+
         return ScoreResult(
             name=self.name,
             score=score,
             explanation=self._explain(score, fk_grade, sent_variance),
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
             details={
                 "flesch_kincaid_grade": round(fk_grade, 1),
                 "sentence_count": len(sentences),

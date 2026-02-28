@@ -70,9 +70,14 @@ def _display_report(report, source: str = ""):
     table.add_column("Details", style="dim")
 
     for result in report.scores:
+        ci_str = ""
+        if result.ci_lower is not None and result.ci_upper is not None:
+            ci_str = f" [{result.ci_lower:.2f}-{result.ci_upper:.2f}]"
+        score_text = _score_bar(result.score)
+        score_text.append(ci_str, style="dim")
         table.add_row(
             result.name,
-            _score_bar(result.score),
+            score_text,
             result.explanation[:80],
         )
 
@@ -208,9 +213,14 @@ def _display_report_from_dict(data: dict, source: str = "") -> None:
     table.add_column("Details", style="dim")
 
     for name, dim in data.get("dimensions", {}).items():
+        ci_str = ""
+        if "ci_lower" in dim and "ci_upper" in dim:
+            ci_str = f" [{dim['ci_lower']:.2f}-{dim['ci_upper']:.2f}]"
+        score_text = _score_bar(dim["score"])
+        score_text.append(ci_str, style="dim")
         table.add_row(
             name,
-            _score_bar(dim["score"]),
+            score_text,
             dim.get("explanation", "")[:80],
         )
 

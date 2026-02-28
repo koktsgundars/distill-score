@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
+from distill.confidence import compute_confidence_interval
 from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 # --- Check for ML dependencies ---
@@ -283,12 +284,20 @@ class OriginalityScorer(Scorer):
             details["semantic_diversity"] = round(diversity_value, 3)
             details["diversity_score"] = round(diversity_score, 3)
 
+        signal_count = experience_count + novel_count + common_count + attribution_count
+        signal_types = 5 if diversity_score is not None else 4
+        ci_lower, ci_upper = compute_confidence_interval(
+            final_score, word_count, signal_count, signal_types=signal_types,
+        )
+
         return ScoreResult(
             name=self.name,
             score=final_score,
             explanation=self._explain(final_score, experience_count, novel_count,
                                       common_count, diversity_value),
             highlights=highlights,
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
             details=details,
         )
 

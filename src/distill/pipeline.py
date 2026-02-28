@@ -88,6 +88,10 @@ class QualityReport:
                 "explanation": r.explanation,
                 "details": r.details,
             }
+            if r.ci_lower is not None:
+                dim["ci_lower"] = round(r.ci_lower, 3)
+            if r.ci_upper is not None:
+                dim["ci_upper"] = round(r.ci_upper, 3)
             if include_highlights and r.highlights:
                 dim["highlights"] = [h.to_dict() for h in r.highlights]
             data["dimensions"][r.name] = dim

@@ -18,6 +18,7 @@ import re
 from typing import ClassVar
 from urllib.parse import urlparse
 
+from distill.confidence import compute_confidence_interval
 from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 # --- Check for optional WHOIS dependency ---
@@ -428,11 +429,26 @@ class SourceAuthorityScorer(Scorer):
         if age_score is not None:
             details["age_score"] = round(age_score, 3)
 
+        # Count available signals for CI computation
+        signal_count = (
+            (1 if domain_score is not None else 0)
+            + (1 if url_score is not None else 0)
+            + int(author_score > 0.25)  # non-default author signal
+            + int(citation_score > 0.25)  # non-default citation signal
+            + (1 if age_score is not None else 0)
+        )
+        signal_types = {"full": 5, "url": 4, "text-only": 2}[mode]
+        ci_lower, ci_upper = compute_confidence_interval(
+            final_score, word_count, signal_count, signal_types=signal_types,
+        )
+
         return ScoreResult(
             name=self.name,
             score=final_score,
             explanation=self._explain(final_score, mode, domain, domain_match_type),
             highlights=highlights,
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
             details=details,
         )
 

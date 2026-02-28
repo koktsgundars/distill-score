@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
+from distill.confidence import compute_confidence_interval
 from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 # --- Pattern definitions ---
@@ -328,11 +329,21 @@ class ComplexityScorer(Scorer):
         )
         highlights.sort(key=lambda h: h.position)
 
+        signal_count = (
+            jargon_count + concept_count + data_density_count
+            + oversimplify_count + needless_count
+        )
+        ci_lower, ci_upper = compute_confidence_interval(
+            score, word_count, signal_count, signal_types=7,
+        )
+
         return ScoreResult(
             name=self.name,
             score=score,
             explanation=self._explain(score, complexity_level, reading_time),
             highlights=highlights,
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
             details={
                 "reading_time_minutes": reading_time,
                 "complexity_level": complexity_level,

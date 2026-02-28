@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
+from distill.confidence import compute_confidence_interval
 from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 # Specific hedges — acknowledging concrete limitations (GOOD)
@@ -204,6 +205,11 @@ class EpistemicScorer(Scorer):
         )
         highlights.sort(key=lambda h: h.position)
 
+        signal_count = qualification_count + overconfidence_count + reasoning_count
+        ci_lower, ci_upper = compute_confidence_interval(
+            score, word_count, signal_count, signal_types=3,
+        )
+
         return ScoreResult(
             name=self.name,
             score=score,
@@ -211,6 +217,8 @@ class EpistemicScorer(Scorer):
                 score, qualification_count, overconfidence_count, reasoning_count
             ),
             highlights=highlights,
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
             details={
                 "qualification_count": qualification_count,
                 "overconfidence_count": overconfidence_count,
