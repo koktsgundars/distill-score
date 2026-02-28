@@ -29,9 +29,15 @@ class ScoreResult:
     details: dict = field(default_factory=dict)
     explanation: str = ""
     highlights: list[MatchHighlight] = field(default_factory=list)
+    ci_lower: float | None = None  # lower bound of confidence interval
+    ci_upper: float | None = None  # upper bound of confidence interval
 
     def __post_init__(self):
         self.score = max(0.0, min(1.0, self.score))
+        if self.ci_lower is not None:
+            self.ci_lower = max(0.0, min(1.0, self.ci_lower))
+        if self.ci_upper is not None:
+            self.ci_upper = max(0.0, min(1.0, self.ci_upper))
 
     def to_dict(self) -> dict:
         """Convert to a JSON-serializable dict."""
@@ -41,6 +47,10 @@ class ScoreResult:
             "explanation": self.explanation,
             "details": self.details,
         }
+        if self.ci_lower is not None:
+            d["ci_lower"] = round(self.ci_lower, 3)
+        if self.ci_upper is not None:
+            d["ci_upper"] = round(self.ci_upper, 3)
         if self.highlights:
             d["highlights"] = [h.to_dict() for h in self.highlights]
         return d

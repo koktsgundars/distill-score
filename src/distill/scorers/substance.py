@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar
 
+from distill.confidence import compute_confidence_interval
 from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
 
 
@@ -265,11 +266,18 @@ class SubstanceScorer(Scorer):
         )
         highlights.sort(key=lambda h: h.position)
 
+        signal_count = filler_count + hedge_count + specific_count + generic_starts
+        ci_lower, ci_upper = compute_confidence_interval(
+            score, word_count, signal_count, signal_types=4,
+        )
+
         return ScoreResult(
             name=self.name,
             score=score,
             explanation=self._explain(score, filler_count, specific_count, hedge_count),
             highlights=highlights,
+            ci_lower=ci_lower,
+            ci_upper=ci_upper,
             details={
                 "filler_count": filler_count,
                 "hedge_count": hedge_count,
