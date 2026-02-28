@@ -71,7 +71,7 @@ entries:
 
   - id: well_cited_research
     description: "Content with specific citations, data points, and methodology"
-    expected_min_score: 0.55
+    expected_min_score: 0.50
     expected_max_score: 0.95
     expected_min_grade: C
     expected_max_grade: A
@@ -118,7 +118,7 @@ entries:
 
   - id: data_heavy_report
     description: "Content dense with numbers, measurements, and specific findings"
-    expected_min_score: 0.55
+    expected_min_score: 0.50
     expected_max_score: 0.95
     expected_min_grade: C
     expected_max_grade: A

@@ -44,23 +44,23 @@ def list_profiles() -> dict[str, str]:
 register_profile(ScorerProfile(
     name="default",
     description="General-purpose scoring (balanced weights)",
-    weights={"substance": 1.5, "epistemic": 1.0, "readability": 0.75, "originality": 0.75, "authority": 0.5},
+    weights={"substance": 1.5, "epistemic": 1.0, "readability": 0.75, "originality": 0.75, "authority": 0.5, "argument": 0.75},
 ))
 
 register_profile(ScorerProfile(
     name="technical",
     description="Docs, tutorials, engineering posts — substance matters most",
-    weights={"substance": 2.0, "epistemic": 0.5, "readability": 1.0, "originality": 1.0, "authority": 0.5},
+    weights={"substance": 2.0, "epistemic": 0.5, "readability": 1.0, "originality": 1.0, "authority": 0.5, "argument": 0.5},
 ))
 
 register_profile(ScorerProfile(
     name="news",
     description="Journalism — epistemic honesty is critical",
-    weights={"substance": 1.0, "epistemic": 2.0, "readability": 1.0, "originality": 0.5, "authority": 1.5},
+    weights={"substance": 1.0, "epistemic": 2.0, "readability": 1.0, "originality": 0.5, "authority": 1.5, "argument": 0.75},
 ))
 
 register_profile(ScorerProfile(
     name="opinion",
     description="Essays, editorials — reasoning and nuance matter",
-    weights={"substance": 1.0, "epistemic": 1.5, "readability": 1.0, "originality": 1.5, "authority": 0.25},
+    weights={"substance": 1.0, "epistemic": 1.5, "readability": 1.0, "originality": 1.5, "authority": 0.25, "argument": 1.5},
 ))
