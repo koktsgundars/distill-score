@@ -32,6 +32,7 @@ dev = [
     "pytest-cov>=4.0",
     "ruff>=0.4",
     "pyyaml>=6.0",
+    "watchdog>=3.0",
 ]
 ml = [
     "sentence-transformers>=2.0",
@@ -39,6 +40,9 @@ ml = [
 ]
 server = [
     "flask>=3.0",
+]
+watch = [
+    "watchdog>=3.0",
 ]
 enrichment = [
     "python-whois>=0.9",

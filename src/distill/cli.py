@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import sys
 
 import click
@@ -16,9 +15,12 @@ import distill.scorers  # noqa: F401
 from distill.pipeline import Pipeline
 
 # Force UTF-8 output on Windows to avoid cp1252 encoding errors
-if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass  # Skip if running under test harness or other non-standard environment
 
 console = Console()
 
@@ -794,6 +796,142 @@ def history_export(as_json: bool, as_csv: bool, limit: int, source: str | None):
     else:
         # Default to JSON
         click.echo(json_mod.dumps(entries, indent=2))
+
+
+@main.command()
+@click.argument("source")
+@click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
+@click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
+@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
+              default=None)
+@click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
+@click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
+@click.option("--debounce", default=2.0, type=float,
+              help="Seconds to wait after last change before re-scoring (default: 2.0)")
+def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
+          highlights: bool, profile: str | None, auto_profile: bool, no_cache: bool,
+          debounce: float):
+    """Watch a file and re-score on changes.
+
+    SOURCE must be a file path (URLs and stdin are not supported).
+    """
+    try:
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+    except ImportError:
+        console.print(
+            "[red]watchdog is required for watch mode. "
+            "Install it with: pip install distill-score[watch][/red]"
+        )
+        raise SystemExit(1)
+
+    if source == "-":
+        raise click.UsageError("Watch mode does not support stdin. Provide a file path.")
+    if source.startswith(("http://", "https://")):
+        raise click.UsageError("Watch mode does not support URLs. Provide a file path.")
+
+    import os
+
+    filepath = os.path.abspath(source)
+    if not os.path.isfile(filepath):
+        console.print(f"[red]File not found: {source}[/red]")
+        raise SystemExit(1)
+
+    if auto_profile and profile:
+        raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
+
+    scorer_names = scorers.split(",") if scorers else None
+
+    import threading
+
+    def _score_and_display():
+        """Read the file, score it, and display the report."""
+        try:
+            with open(filepath) as f:
+                text = f.read()
+        except Exception as e:
+            console.print(f"[red]Error reading file: {e}[/red]")
+            return
+
+        if not text.strip():
+            console.print("[dim]File is empty, skipping.[/dim]")
+            return
+
+        pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
+        report = pipeline.score(text, include_paragraphs=paragraphs)
+
+        # Cache
+        if not no_cache:
+            from distill.cache import ScoreCache
+
+            cache = ScoreCache()
+            effective = scorer_names or [s.name for s in pipeline._scorers]
+            report_dict = report.to_dict(include_highlights=True)
+            cache.put(text, report_dict, source=source, profile=profile,
+                      scorer_names=effective)
+
+        if pipeline.detected_content_type and not as_json:
+            ct = pipeline.detected_content_type
+            console.print(f"[dim]Auto-detected: {ct.name} (confidence {ct.confidence:.2f})[/dim]")
+
+        if as_json:
+            import json
+
+            data = _report_to_dict(report, include_highlights=highlights)
+            click.echo(json.dumps(data, indent=2))
+        else:
+            _display_report(report, source=source)
+            if highlights:
+                _display_highlights(report)
+            if paragraphs:
+                _display_paragraphs(report)
+
+    # Initial score
+    console.print(f"[bold]Watching[/bold] {source} [dim](debounce {debounce}s, Ctrl+C to stop)[/dim]\n")
+    _score_and_display()
+
+    # Debounced file watcher
+    timer: threading.Timer | None = None
+    timer_lock = threading.Lock()
+
+    def _on_change():
+        """Called after debounce delay."""
+        # Clear screen and re-score
+        click.clear()
+        console.print(f"[bold]Watching[/bold] {source} [dim](debounce {debounce}s, Ctrl+C to stop)[/dim]\n")
+        _score_and_display()
+
+    class _Handler(FileSystemEventHandler):
+        def on_modified(self, event):
+            if os.path.abspath(event.src_path) != filepath:
+                return
+            nonlocal timer
+            with timer_lock:
+                if timer is not None:
+                    timer.cancel()
+                timer = threading.Timer(debounce, _on_change)
+                timer.daemon = True
+                timer.start()
+
+    observer = Observer()
+    observer.schedule(_Handler(), os.path.dirname(filepath), recursive=False)
+    observer.start()
+
+    try:
+        import time
+
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("\n[dim]Stopping watch...[/dim]")
+    finally:
+        observer.stop()
+        observer.join()
+        with timer_lock:
+            if timer is not None:
+                timer.cancel()
 
 
 if __name__ == "__main__":
