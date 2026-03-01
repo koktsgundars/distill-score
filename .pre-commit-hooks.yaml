@@ -1,0 +1,7 @@
+- id: distill-gate
+  name: distill quality gate
+  description: Check content quality meets minimum threshold
+  entry: distill gate
+  language: python
+  types_or: [markdown, plain-text, rst]
+  additional_dependencies: ['distill-score']

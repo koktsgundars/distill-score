@@ -1,0 +1,53 @@
+name: 'Distill Quality Gate'
+description: 'Enforce content quality thresholds using distill-score'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  files:
+    description: 'Space-separated file paths or glob patterns to score'
+    required: true
+  min-grade:
+    description: 'Minimum acceptable grade (A, B, C, D, F)'
+    required: false
+    default: 'C'
+  min-score:
+    description: 'Minimum acceptable overall score (0.0-1.0). Overrides min-grade if set.'
+    required: false
+  profile:
+    description: 'Scorer profile (default, technical, news, opinion)'
+    required: false
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.12'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install distill-score
+      shell: bash
+      run: pip install distill-score
+
+    - name: Run quality gate
+      shell: bash
+      run: |
+        ARGS="${{ inputs.files }}"
+
+        if [ -n "${{ inputs.min-score }}" ]; then
+          ARGS="$ARGS --min-score ${{ inputs.min-score }}"
+        else
+          ARGS="$ARGS --min-grade ${{ inputs.min-grade }}"
+        fi
+
+        if [ -n "${{ inputs.profile }}" ]; then
+          ARGS="$ARGS --profile ${{ inputs.profile }}"
+        fi
+
+        distill gate $ARGS --no-cache

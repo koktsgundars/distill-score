@@ -798,6 +798,138 @@ def history_export(as_json: bool, as_csv: bool, limit: int, source: str | None):
         click.echo(json_mod.dumps(entries, indent=2))
 
 
+_GRADE_ORDER = {"A": 4, "B": 3, "C": 2, "D": 1, "F": 0}
+
+
+@main.command()
+@click.argument("sources", nargs=-1)
+@click.option("--from-file", "from_file", type=click.Path(exists=True),
+              help="Read sources from a file (one per line)")
+@click.option("--min-grade", default="C",
+              type=click.Choice(["A", "B", "C", "D", "F"], case_sensitive=False),
+              help="Minimum acceptable grade (default: C)")
+@click.option("--min-score", default=None, type=float,
+              help="Minimum acceptable overall score (0.0-1.0). Overrides --min-grade.")
+@click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
+@click.option("--json", "as_json", is_flag=True, help="Output JSON with pass/fail per source")
+@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
+              default=None)
+@click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
+@click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
+def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_score: float | None,
+         scorers: str | None, as_json: bool, profile: str | None, auto_profile: bool,
+         no_cache: bool):
+    """Quality gate — fail if content is below threshold.
+
+    Exits 0 if all sources pass, exits 1 if any fail.
+    Useful for CI pipelines and pre-commit hooks.
+    """
+    if auto_profile and profile:
+        raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
+
+    all_sources = list(sources)
+    if from_file:
+        with open(from_file) as f:
+            all_sources.extend(line.strip() for line in f if line.strip())
+
+    if not all_sources:
+        console.print("[red]No sources provided. Pass file paths/URLs as arguments "
+                       "or use --from-file.[/red]")
+        raise SystemExit(1)
+
+    scorer_names = scorers.split(",") if scorers else None
+    min_grade_upper = min_grade.upper()
+
+    pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
+
+    # Score each source
+    gate_results: list[dict] = []
+    any_failed = False
+
+    for src in all_sources:
+        label, text, metadata = _resolve_source(src, quiet=True)
+
+        # Cache check
+        report = None
+        if not no_cache:
+            from distill.cache import ScoreCache
+
+            cache = ScoreCache()
+            cached = cache.get(text, profile=profile, scorer_names=scorer_names)
+            if cached is not None:
+                score_val = cached["overall_score"]
+                grade_val = cached["grade"]
+            else:
+                cached = None
+
+        if not no_cache and cached is not None:
+            pass  # score_val and grade_val already set
+        else:
+            report = pipeline.score(text, metadata=metadata)
+            score_val = report.overall_score
+            grade_val = report.grade
+
+            # Save to cache
+            from distill.cache import ScoreCache
+
+            cache = ScoreCache()
+            effective = scorer_names or [s.name for s in pipeline._scorers]
+            report_dict = report.to_dict(include_highlights=False)
+            cache.put(text, report_dict, source=src, profile=profile,
+                      scorer_names=effective, metadata=metadata)
+
+        # Determine pass/fail
+        if min_score is not None:
+            passed = score_val >= min_score
+        else:
+            passed = _GRADE_ORDER.get(grade_val, 0) >= _GRADE_ORDER.get(min_grade_upper, 2)
+
+        if not passed:
+            any_failed = True
+
+        gate_results.append({
+            "source": src,
+            "score": round(score_val, 3),
+            "grade": grade_val,
+            "passed": passed,
+        })
+
+    if as_json:
+        import json
+
+        threshold = {"min_score": min_score} if min_score is not None else {"min_grade": min_grade_upper}
+        output = {
+            "threshold": threshold,
+            "all_passed": not any_failed,
+            "results": gate_results,
+        }
+        click.echo(json.dumps(output, indent=2))
+    else:
+        # Compact table
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+        table.add_column("Source", max_width=50)
+        table.add_column("Score", justify="right")
+        table.add_column("Grade", justify="center")
+        table.add_column("Status", justify="center")
+
+        for r in gate_results:
+            status = "[green]PASS[/green]" if r["passed"] else "[red]FAIL[/red]"
+            table.add_row(r["source"][:50], f"{r['score']:.3f}", r["grade"], status)
+
+        console.print(table)
+
+        if any_failed:
+            threshold_str = (f"score >= {min_score}" if min_score is not None
+                             else f"grade >= {min_grade_upper}")
+            console.print(f"\n[red bold]FAILED[/red bold] — "
+                          f"threshold: {threshold_str}")
+        else:
+            console.print("\n[green bold]PASSED[/green bold] — all sources meet quality gate")
+
+    if any_failed:
+        raise SystemExit(1)
+
+
 @main.command()
 @click.argument("source")
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
