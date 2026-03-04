@@ -1,0 +1,417 @@
+# Evaluation corpus for distill quality scoring.
+# Each entry is a URL with a proxy-derived quality tier (high/medium/low).
+# Text is stored in snapshots/ directory, not inline.
+# Use `distill evaluate --snapshot` to fetch and cache URL text.
+
+entries:
+  # ============================================================
+  # HIGH TIER — well-known high-quality long-form content
+  # ============================================================
+
+  - id: pg_greatwork
+    url: "https://www.paulgraham.com/greatwork.html"
+    description: "Paul Graham - How to Do Great Work"
+    tier: high
+    content_type: opinion
+    proxy_source: "HN top post, >500 points"
+    tags: [essay, long-form]
+
+  - id: pg_taste
+    url: "https://www.paulgraham.com/taste.html"
+    description: "Paul Graham - Taste for Makers"
+    tier: high
+    content_type: opinion
+    proxy_source: "HN top post, canonical essay"
+    tags: [essay]
+
+  - id: pg_do_things_that_dont_scale
+    url: "https://www.paulgraham.com/ds.html"
+    description: "Paul Graham - Do Things That Don't Scale"
+    tier: high
+    content_type: opinion
+    proxy_source: "HN top post, >500 points"
+    tags: [essay, startups]
+
+  - id: danluu_web_bloat
+    url: "https://danluu.com/web-bloat/"
+    description: "Dan Luu - Web Bloat"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality technical blog"
+    tags: [technical, performance]
+
+  - id: danluu_input_lag
+    url: "https://danluu.com/input-lag/"
+    description: "Dan Luu - Computer Latency at Every Level"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality technical blog"
+    tags: [technical, performance, data-heavy]
+
+  - id: jvns_dns
+    url: "https://jvns.ca/blog/2022/09/12/why-do-domain-names-end-with-a-dot-/"
+    description: "Julia Evans - Why do domain names end with a dot?"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality technical blog"
+    tags: [technical, explainer]
+
+  - id: jvns_sql_queries
+    url: "https://jvns.ca/blog/2019/10/03/sql-queries-don-t-start-with-select/"
+    description: "Julia Evans - SQL queries don't start with SELECT"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality technical blog"
+    tags: [technical, explainer]
+
+  - id: fowler_microservices
+    url: "https://martinfowler.com/articles/microservices.html"
+    description: "Martin Fowler - Microservices"
+    tier: high
+    content_type: technical
+    proxy_source: "Canonical industry reference"
+    tags: [technical, architecture, long-form]
+
+  - id: joel_things_you_should_never_do
+    url: "https://www.joelonsoftware.com/2000/04/06/things-you-should-never-do-part-i/"
+    description: "Joel Spolsky - Things You Should Never Do, Part I"
+    tier: high
+    content_type: opinion
+    proxy_source: "Canonical software essay"
+    tags: [essay, software-engineering]
+
+  - id: joel_strategy_letter
+    url: "https://www.joelonsoftware.com/2001/06/12/strategy-letter-v/"
+    description: "Joel Spolsky - Strategy Letter V"
+    tier: high
+    content_type: opinion
+    proxy_source: "Canonical software essay"
+    tags: [essay, business]
+
+  - id: stripe_api_design
+    url: "https://stripe.com/blog/payment-api-design"
+    description: "Stripe - Designing APIs for humans"
+    tier: high
+    content_type: technical
+    proxy_source: "Top engineering blog"
+    tags: [technical, api-design]
+
+  - id: cloudflare_workers_architecture
+    url: "https://blog.cloudflare.com/how-we-built-pingora-the-proxy-that-connects-cloudflare-to-the-internet/"
+    description: "Cloudflare - How we built Pingora"
+    tier: high
+    content_type: technical
+    proxy_source: "Top engineering blog, deep technical dive"
+    tags: [technical, architecture, long-form]
+
+  - id: norvig_spellcheck
+    url: "https://norvig.com/spell-correct.html"
+    description: "Peter Norvig - How to Write a Spelling Corrector"
+    tier: high
+    content_type: technical
+    proxy_source: "Canonical programming essay"
+    tags: [technical, tutorial, data-heavy]
+
+  - id: karpathy_recipe
+    url: "https://karpathy.github.io/2019/04/25/recipe/"
+    description: "Andrej Karpathy - A Recipe for Training Neural Networks"
+    tier: high
+    content_type: technical
+    proxy_source: "HN top post, >500 points"
+    tags: [technical, ml, long-form]
+
+  - id: waitbutwhy_ai
+    url: "https://waitbutwhy.com/2015/01/artificial-intelligence-revolution-1.html"
+    description: "Wait But Why - AI Revolution Part 1"
+    tier: high
+    content_type: opinion
+    proxy_source: "Widely cited long-form, >1000 HN points"
+    tags: [essay, ai, long-form]
+
+  - id: gwern_spaced_repetition
+    url: "https://gwern.net/spaced-repetition"
+    description: "Gwern - Spaced Repetition"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality research blog"
+    tags: [technical, research, long-form]
+
+  - id: fly_sqlite_litestream
+    url: "https://fly.io/blog/all-in-on-sqlite-litestream/"
+    description: "Fly.io - I'm All-In on Server-Side SQLite"
+    tier: high
+    content_type: technical
+    proxy_source: "HN top post, >500 points"
+    tags: [technical, databases]
+
+  - id: discord_data_services
+    url: "https://discord.com/blog/how-discord-stores-trillions-of-messages"
+    description: "Discord - How Discord Stores Trillions of Messages"
+    tier: high
+    content_type: technical
+    proxy_source: "Top engineering blog, data-heavy"
+    tags: [technical, databases, scale]
+
+  - id: rachelbythebay_latency
+    url: "https://rachelbythebay.com/w/2014/06/14/time/"
+    description: "Rachel by the Bay - Time, clock, and ordering"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality practitioner blog"
+    tags: [technical, systems]
+
+  - id: brandur_soft_deletion
+    url: "https://brandur.org/soft-deletion"
+    description: "Brandur - Soft Deletion Probably Isn't Worth It"
+    tier: high
+    content_type: technical
+    proxy_source: "Known high-quality practitioner blog"
+    tags: [technical, databases]
+
+  # ============================================================
+  # MEDIUM TIER — decent but not exceptional content
+  # ============================================================
+
+  - id: devto_react_hooks
+    url: "https://dev.to/dan_abramov/making-sense-of-react-hooks-2eib"
+    description: "Dan Abramov - Making Sense of React Hooks (dev.to)"
+    tier: medium
+    content_type: technical
+    proxy_source: "Popular dev.to post, moderate depth"
+    tags: [tutorial, react]
+
+  - id: freecodecamp_git_guide
+    url: "https://www.freecodecamp.org/news/git-and-github-for-beginners/"
+    description: "freeCodeCamp - Git and GitHub for Beginners"
+    tier: medium
+    content_type: technical
+    proxy_source: "Tutorial site, beginner level"
+    tags: [tutorial, git]
+
+  - id: medium_docker_best_practices
+    url: "https://medium.com/@nodepractices/docker-best-practices-with-node-js-e044b78d8f67"
+    description: "Medium - Docker best practices with Node.js"
+    tier: medium
+    content_type: technical
+    proxy_source: "Medium post, moderate engagement"
+    tags: [tutorial, docker]
+
+  - id: digitalocean_nginx
+    url: "https://www.digitalocean.com/community/tutorials/how-to-install-nginx-on-ubuntu-20-04"
+    description: "DigitalOcean - How To Install Nginx on Ubuntu"
+    tier: medium
+    content_type: technical
+    proxy_source: "Standard tutorial/docs"
+    tags: [tutorial, devops]
+
+  - id: github_blog_copilot
+    url: "https://github.blog/2023-06-20-how-to-write-better-prompts-for-github-copilot/"
+    description: "GitHub Blog - How to write better prompts for Copilot"
+    tier: medium
+    content_type: technical
+    proxy_source: "Corporate blog, promotional but somewhat useful"
+    tags: [tutorial, ai]
+
+  - id: aws_lambda_best_practices
+    url: "https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html"
+    description: "AWS - Lambda Best Practices"
+    tier: medium
+    content_type: technical
+    proxy_source: "Official docs, useful but generic"
+    tags: [documentation, aws]
+
+  - id: baeldung_spring_boot
+    url: "https://www.baeldung.com/spring-boot"
+    description: "Baeldung - Guide to Spring Boot"
+    tier: medium
+    content_type: technical
+    proxy_source: "Tutorial site, standard coverage"
+    tags: [tutorial, java]
+
+  - id: realpython_decorators
+    url: "https://realpython.com/primer-on-python-decorators/"
+    description: "Real Python - Primer on Python Decorators"
+    tier: medium
+    content_type: technical
+    proxy_source: "Tutorial site, moderate depth"
+    tags: [tutorial, python]
+
+  - id: css_tricks_flexbox
+    url: "https://css-tricks.com/snippets/css/a-guide-to-flexbox/"
+    description: "CSS-Tricks - A Complete Guide to Flexbox"
+    tier: medium
+    content_type: technical
+    proxy_source: "Popular reference guide"
+    tags: [reference, css]
+
+  - id: hackernoon_microservices
+    url: "https://hackernoon.com/microservices-are-hard-an-honest-look-at-the-challenges"
+    description: "HackerNoon - Microservices are Hard"
+    tier: medium
+    content_type: opinion
+    proxy_source: "HackerNoon post, moderate quality"
+    tags: [opinion, architecture]
+
+  - id: smashing_web_performance
+    url: "https://www.smashingmagazine.com/2021/01/front-end-performance-2021-free-pdf-checklist/"
+    description: "Smashing Magazine - Front-End Performance Checklist 2021"
+    tier: medium
+    content_type: technical
+    proxy_source: "Industry publication, useful checklist"
+    tags: [technical, performance]
+
+  - id: twilio_blog_webhooks
+    url: "https://www.twilio.com/blog/what-is-a-webhook"
+    description: "Twilio - What is a Webhook?"
+    tier: medium
+    content_type: technical
+    proxy_source: "Corporate blog, introductory"
+    tags: [tutorial, basics]
+
+  - id: stackoverflow_blog_best_practices
+    url: "https://stackoverflow.blog/2020/07/01/nobody-has-to-lose/"
+    description: "Stack Overflow Blog - How to be a good developer"
+    tier: medium
+    content_type: opinion
+    proxy_source: "Corporate blog, editorial"
+    tags: [opinion, career]
+
+  - id: mozilla_js_closures
+    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures"
+    description: "MDN - Closures in JavaScript"
+    tier: medium
+    content_type: technical
+    proxy_source: "Official reference docs"
+    tags: [documentation, javascript]
+
+  - id: atlassian_git_branching
+    url: "https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow"
+    description: "Atlassian - Gitflow Workflow"
+    tier: medium
+    content_type: technical
+    proxy_source: "Corporate tutorial, standard depth"
+    tags: [tutorial, git]
+
+  # ============================================================
+  # LOW TIER — thin, filler, or SEO-driven content
+  # ============================================================
+
+  - id: geeksforgeeks_array_intro
+    url: "https://www.geeksforgeeks.org/introduction-to-arrays-data-structure-and-algorithm-tutorials/"
+    description: "GeeksforGeeks - Introduction to Arrays"
+    tier: low
+    content_type: technical
+    proxy_source: "SEO-optimized, extremely basic"
+    tags: [seo, basics]
+
+  - id: guru99_sql
+    url: "https://www.guru99.com/sql.html"
+    description: "Guru99 - SQL Tutorial for Beginners"
+    tier: low
+    content_type: technical
+    proxy_source: "Known content farm"
+    tags: [seo, tutorial]
+
+  - id: javatpoint_python
+    url: "https://www.javatpoint.com/python-tutorial"
+    description: "Javatpoint - Python Tutorial"
+    tier: low
+    content_type: technical
+    proxy_source: "Known content farm"
+    tags: [seo, tutorial]
+
+  - id: simplilearn_devops
+    url: "https://www.simplilearn.com/tutorials/devops-tutorial/what-is-devops"
+    description: "Simplilearn - What is DevOps?"
+    tier: low
+    content_type: marketing
+    proxy_source: "Course marketing disguised as tutorial"
+    tags: [marketing, seo]
+
+  - id: intellipaat_cloud
+    url: "https://intellipaat.com/blog/what-is-cloud-computing/"
+    description: "Intellipaat - What is Cloud Computing?"
+    tier: low
+    content_type: marketing
+    proxy_source: "Course marketing content"
+    tags: [marketing, seo]
+
+  - id: edureka_kubernetes
+    url: "https://www.edureka.co/blog/what-is-kubernetes-container-orchestration"
+    description: "Edureka - What is Kubernetes?"
+    tier: low
+    content_type: marketing
+    proxy_source: "Course marketing content farm"
+    tags: [marketing, seo]
+
+  - id: tutorialspoint_java
+    url: "https://www.tutorialspoint.com/java/index.htm"
+    description: "TutorialsPoint - Java Tutorial"
+    tier: low
+    content_type: technical
+    proxy_source: "SEO content, minimal depth"
+    tags: [seo, tutorial]
+
+  - id: w3schools_html
+    url: "https://www.w3schools.com/html/html_intro.asp"
+    description: "W3Schools - HTML Introduction"
+    tier: low
+    content_type: technical
+    proxy_source: "Minimal content, SEO-optimized"
+    tags: [seo, basics]
+
+  - id: businessinsider_tech_list
+    url: "https://www.businessinsider.com/best-programming-languages-to-learn"
+    description: "Business Insider - Best Programming Languages to Learn"
+    tier: low
+    content_type: marketing
+    proxy_source: "Listicle, no technical depth"
+    tags: [listicle, seo]
+
+  - id: makeuseof_linux
+    url: "https://www.makeuseof.com/tag/linux-beginners-guide/"
+    description: "MakeUseOf - A Beginner's Guide to Linux"
+    tier: low
+    content_type: technical
+    proxy_source: "Thin content site"
+    tags: [seo, basics]
+
+  - id: techradar_best_databases
+    url: "https://www.techradar.com/best/best-database-software"
+    description: "TechRadar - Best Database Software"
+    tier: low
+    content_type: marketing
+    proxy_source: "Affiliate/listicle content"
+    tags: [listicle, affiliate]
+
+  - id: hostinger_website_builder
+    url: "https://www.hostinger.com/tutorials/what-is-html"
+    description: "Hostinger - What is HTML?"
+    tier: low
+    content_type: marketing
+    proxy_source: "Hosting company SEO content"
+    tags: [marketing, seo]
+
+  - id: indeed_developer_skills
+    url: "https://www.indeed.com/career-advice/resumes-cover-letters/technical-skills-for-resume"
+    description: "Indeed - Technical Skills for Resume"
+    tier: low
+    content_type: marketing
+    proxy_source: "Job site filler content"
+    tags: [seo, career]
+
+  - id: hubspot_what_is_api
+    url: "https://blog.hubspot.com/website/application-programming-interface-api"
+    description: "HubSpot - What is an API?"
+    tier: low
+    content_type: marketing
+    proxy_source: "Marketing company SEO content"
+    tags: [marketing, seo]
+
+  - id: coursera_data_science_overview
+    url: "https://www.coursera.org/articles/what-is-data-science"
+    description: "Coursera - What is Data Science?"
+    tier: low
+    content_type: marketing
+    proxy_source: "Course platform marketing"
+    tags: [marketing, seo]

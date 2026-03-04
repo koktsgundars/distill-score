@@ -1066,5 +1066,120 @@ def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
                 timer.cancel()
 
 
+@main.command()
+@click.option("--snapshot", is_flag=True, help="Fetch URLs and save text snapshots before evaluating")
+@click.option("--refresh", is_flag=True, help="Re-fetch all snapshots even if they exist")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+@click.option("--corpus", "corpus_path", type=click.Path(exists=True), default=None,
+              help="Path to alternate corpus YAML file")
+@click.option("--profile", "-p", help="Scorer profile for all entries", default=None)
+@click.option("--auto-profile", is_flag=True, help="Auto-detect content type per entry")
+@click.option("--threshold", default=0.70, type=float,
+              help="Minimum Spearman rho to pass (default: 0.70)")
+def evaluate(snapshot: bool, refresh: bool, as_json: bool, corpus_path: str | None,
+             profile: str | None, auto_profile: bool, threshold: float):
+    """Evaluate scoring quality against a proxy-labeled corpus.
+
+    Scores all entries in the evaluation corpus, computes rank correlation
+    with proxy quality labels, and reports pass/fail.
+
+    Use --snapshot to fetch URLs and cache text for offline evaluation.
+    """
+    if auto_profile and profile:
+        raise click.UsageError("--auto-profile and --profile are mutually exclusive.")
+
+    from distill.evaluate import run_evaluation
+
+    fetch = snapshot or refresh
+
+    if not as_json:
+        def on_progress(entry_id, index, total, status):
+            console.print(f"  [{index}/{total}] {entry_id}: {status}")
+
+        if fetch:
+            console.print("[bold]Fetching snapshots...[/bold]")
+    else:
+        on_progress = None
+
+    report = run_evaluation(
+        corpus_path=corpus_path,
+        profile=profile,
+        auto_profile=auto_profile,
+        fetch_snapshots=fetch,
+        refresh_snapshots=refresh,
+        rho_threshold=threshold,
+        on_progress=on_progress if not as_json else None,
+    )
+
+    if as_json:
+        import json
+
+        click.echo(json.dumps(report.to_dict(), indent=2))
+    else:
+        _display_evaluation(report)
+
+    if not report.passed:
+        raise SystemExit(1)
+
+
+def _display_evaluation(report) -> None:
+    """Rich display of evaluation results."""
+    console.print(f"\n[bold]Evaluation Results ({report.total_entries} entries)[/bold]")
+    console.print("=" * 50)
+
+    # Tier separation
+    console.print("\n[bold]Tier Separation:[/bold]")
+    for ts in report.tier_stats:
+        console.print(
+            f"  {ts.tier:<8} (n={ts.count:>2}):  "
+            f"mean={ts.mean:.2f}  std={ts.std:.2f}  "
+            f"range=[{ts.min_score:.2f}, {ts.max_score:.2f}]"
+        )
+
+    # Rank correlation
+    console.print("\n[bold]Rank Correlation:[/bold]")
+    rho_color = "green" if report.spearman_rho >= 0.70 else "red"
+    console.print(
+        f"  Spearman rho = [{rho_color}]{report.spearman_rho:.4f}[/{rho_color}]"
+        f"  (p = {report.spearman_p_value:.6f})"
+    )
+
+    # Classification
+    console.print("\n[bold]Tier Classification:[/bold]")
+    acc_color = "green" if report.classification_accuracy >= 0.70 else "yellow"
+    console.print(
+        f"  Accuracy: [{acc_color}]{report.classification_accuracy:.0%}[/{acc_color}]"
+        f" ({report.correct_count}/{report.total_entries})"
+    )
+    if report.misclassifications:
+        console.print("  Misclassified:")
+        for m in report.misclassifications[:10]:
+            console.print(
+                f"    - {m.entry_id}: scored {m.score:.2f} "
+                f"(expected {m.expected_tier}, got {m.predicted_tier})"
+            )
+        if len(report.misclassifications) > 10:
+            console.print(f"    ... and {len(report.misclassifications) - 10} more")
+
+    # Per content type
+    if report.content_type_stats:
+        console.print("\n[bold]Per Content Type:[/bold]")
+        for ct in report.content_type_stats:
+            ct_color = "green" if ct.spearman_rho >= 0.70 else "yellow"
+            console.print(
+                f"  {ct.content_type:<12}  "
+                f"rho=[{ct_color}]{ct.spearman_rho:.2f}[/{ct_color}]  "
+                f"(n={ct.count})"
+            )
+
+    # Pass/fail
+    console.print()
+    if report.passed:
+        console.print(f"[green bold]PASS[/green bold] (rho >= {0.70:.2f})")
+    else:
+        console.print(f"[red bold]FAIL[/red bold] (rho < {0.70:.2f})")
+    console.print()
+
+
 if __name__ == "__main__":
     main()
