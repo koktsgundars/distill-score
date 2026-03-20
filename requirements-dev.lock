@@ -1,0 +1,96 @@
+anyio==4.12.1
+    # via httpx
+certifi==2026.2.25
+    # via
+    #   httpcore
+    #   httpx
+cfgv==3.5.0
+    # via pre-commit
+chardet==7.2.0
+    # via readability-lxml
+click==8.3.1
+    # via distill-score (pyproject.toml)
+coverage==7.13.5
+    # via pytest-cov
+cssselect==1.4.0
+    # via readability-lxml
+distlib==0.4.0
+    # via virtualenv
+filelock==3.25.2
+    # via
+    #   python-discovery
+    #   virtualenv
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via distill-score (pyproject.toml)
+identify==2.6.18
+    # via pre-commit
+idna==3.11
+    # via
+    #   anyio
+    #   httpx
+iniconfig==2.3.0
+    # via pytest
+lxml==6.0.2
+    # via
+    #   lxml-html-clean
+    #   readability-lxml
+lxml-html-clean==0.4.4
+    # via
+    #   distill-score (pyproject.toml)
+    #   lxml
+markdown-it-py==4.0.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
+nodeenv==1.10.0
+    # via
+    #   pre-commit
+    #   pyright
+packaging==26.0
+    # via pytest
+platformdirs==4.9.4
+    # via
+    #   python-discovery
+    #   virtualenv
+pluggy==1.6.0
+    # via
+    #   pytest
+    #   pytest-cov
+pre-commit==4.5.1
+    # via distill-score (pyproject.toml)
+pygments==2.19.2
+    # via
+    #   pytest
+    #   rich
+pyright==1.1.408
+    # via distill-score (pyproject.toml)
+pytest==9.0.2
+    # via
+    #   distill-score (pyproject.toml)
+    #   pytest-cov
+pytest-cov==7.0.0
+    # via distill-score (pyproject.toml)
+python-discovery==1.2.0
+    # via virtualenv
+pyyaml==6.0.3
+    # via
+    #   distill-score (pyproject.toml)
+    #   pre-commit
+readability-lxml==0.8.4.1
+    # via distill-score (pyproject.toml)
+rich==14.3.3
+    # via distill-score (pyproject.toml)
+ruff==0.15.7
+    # via distill-score (pyproject.toml)
+typing-extensions==4.15.0
+    # via
+    #   anyio
+    #   pyright
+virtualenv==21.2.0
+    # via pre-commit
+watchdog==6.0.0
+    # via distill-score (pyproject.toml)
