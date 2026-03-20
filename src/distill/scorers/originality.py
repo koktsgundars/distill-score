@@ -20,7 +20,7 @@ from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 # --- Check for ML dependencies ---
 
 try:
-    from sentence_transformers import SentenceTransformer  # noqa: F401
+    from sentence_transformers import SentenceTransformer  # noqa: F401, I001  # type: ignore[import-not-found]
 
     _HAS_ML = True
 except ImportError:
@@ -141,7 +141,7 @@ class OriginalityScorer(Scorer):
     def _get_model(self):
         """Lazy-load the sentence transformer model."""
         if self._model is None and _HAS_ML:
-            from sentence_transformers import SentenceTransformer
+            from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
 
             self._model = SentenceTransformer("all-MiniLM-L6-v2")
         return self._model

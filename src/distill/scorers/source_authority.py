@@ -24,7 +24,7 @@ from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 # --- Check for optional WHOIS dependency ---
 
 try:
-    import whois  # noqa: F401
+    import whois  # noqa: F401, I001  # type: ignore[import-not-found]
 
     _HAS_WHOIS = True
 except ImportError:
@@ -409,7 +409,7 @@ def _score_domain_age(domain: str) -> float | None:
     try:
         from datetime import datetime
 
-        import whois as whois_lib
+        import whois as whois_lib  # type: ignore[import-not-found]
 
         w = whois_lib.whois(domain)
         creation = w.creation_date
