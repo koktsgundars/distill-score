@@ -11,17 +11,13 @@ pip install -e ".[dev]"
 ## Commands
 
 ```bash
-# Run tests with coverage
-pytest --cov=distill --cov-report=term-missing
-
-# Lint
-ruff check src/ tests/
-
-# Format check
-ruff format --check src/ tests/
-
-# Type check
-pyright src/
+make check       # Run all validations (lint + format + typecheck + test)
+make test        # Run tests with coverage
+make lint        # Lint check
+make format      # Format check
+make typecheck   # Type check
+make fix         # Auto-fix lint and formatting
+make install     # Install in dev mode
 ```
 
 ## Architecture
