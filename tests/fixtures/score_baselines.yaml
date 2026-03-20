@@ -1,0 +1,58 @@
+# Score stability baselines — tighter than calibration corpus ranges.
+# Update these values when scoring logic intentionally changes.
+# Tolerance: +/- 0.05
+
+tolerance: 0.05
+
+texts:
+  expert:
+    content: >
+      We migrated our PostgreSQL cluster from 14 to 16 in January 2025. The
+      process took 3 weeks across our 12-node setup. The key challenge was that
+      our custom extensions (pg_partman and timescaledb) required
+      version-specific rebuilds. Latency improved by approximately 18% on our
+      analytical queries due to improved parallel query execution, but we saw a
+      regression in write throughput (about 7% drop) that we traced to changed
+      autovacuum defaults.
+
+      The tradeoff: PostgreSQL 16s improved logical replication was the main
+      driver for the upgrade, because we needed to replicate to our Snowflake
+      warehouse without CDC tools. However, this only works for tables without
+      generated columns, which forced us to restructure 3 of our 40 tables. For
+      teams considering this upgrade, I would recommend testing your specific
+      extension stack against 16 before committing the core upgrade is smooth,
+      but extension compatibility is where the surprises live.
+    expected:
+      overall: 0.619
+      substance: 0.701
+      epistemic: 0.653
+      readability: 0.850
+      originality: 0.573
+      argument: 0.534
+      complexity: 0.522
+      authority: 0.250
+
+  fluff:
+    content: >
+      In todays fast-paced digital landscape, its more important than ever to
+      leverage cutting-edge solutions that drive synergy and maximize
+      stakeholder value. Our innovative platform empowers users to unlock their
+      full potential through best-in-class methodologies and game-changing
+      paradigm shifts. We believe in pushing the envelope to deliver world-class
+      results that move the needle and create a win-win situation for all
+      parties involved.
+    expected:
+      overall: 0.314
+      substance: 0.112
+      epistemic: 0.350
+      readability: 0.700
+      originality: 0.330
+      argument: 0.300
+      complexity: 0.330
+      authority: 0.250
+
+invariants:
+  - name: expert_beats_fluff
+    higher: expert
+    lower: fluff
+    margin: 0.1
