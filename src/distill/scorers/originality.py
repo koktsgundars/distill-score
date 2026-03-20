@@ -206,7 +206,7 @@ class OriginalityScorer(Scorer):
         if _HAS_ML and has_enough_paragraphs:
             model = self._get_model()
             if model is not None:
-                import numpy as np
+                import numpy as np  # type: ignore[import-not-found]
 
                 embeddings = model.encode(paragraphs)
                 n = len(embeddings)
