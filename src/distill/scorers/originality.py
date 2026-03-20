@@ -15,7 +15,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 
 # --- Check for ML dependencies ---
 
@@ -36,7 +36,8 @@ EXPERIENCE_CLAIMS = [
     r"\bwhen (?:we|I) (?:deployed|tested|measured|ran|built|migrated|implemented)\b",
     r"\b(?:we|I) (?:noticed|discovered|observed|realized|learned|saw|traced|hit)\b",
     r"\b(?:we|I) (?:built|created|designed|developed|wrote|needed|used|went)\b",
-    r"\b(?:our|my) (?:team|approach|implementation|solution|results?|data|setup|cluster|system|service|queries|pipeline)\b",
+    r"\b(?:our|my) (?:team|approach|implementation|solution|results?"
+    r"|data|setup|cluster|system|service|queries|pipeline)\b",
     r"\bafter (?:we|I) (?:switched|moved|upgraded|changed|tried)\b",
     r"\bI'?d (?:honestly )?recommend\b",
     r"\bforced us to\b",
@@ -96,15 +97,11 @@ def _count(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
 
 
-def _find_matches(
-    patterns: list[re.Pattern], text: str, category: str
-) -> list[MatchHighlight]:
+def _find_matches(patterns: list[re.Pattern], text: str, category: str) -> list[MatchHighlight]:
     matches = []
     for p in patterns:
         for m in p.finditer(text):
-            matches.append(MatchHighlight(
-                text=m.group(), category=category, position=m.start()
-            ))
+            matches.append(MatchHighlight(text=m.group(), category=category, position=m.start()))
     return matches
 
 
@@ -145,6 +142,7 @@ class OriginalityScorer(Scorer):
         """Lazy-load the sentence transformer model."""
         if self._model is None and _HAS_ML:
             from sentence_transformers import SentenceTransformer
+
             self._model = SentenceTransformer("all-MiniLM-L6-v2")
         return self._model
 
@@ -217,9 +215,10 @@ class OriginalityScorer(Scorer):
                 similarities = []
                 for i in range(n):
                     for j in range(i + 1, n):
-                        sim = float(np.dot(embeddings[i], embeddings[j]) / (
-                            np.linalg.norm(embeddings[i]) * np.linalg.norm(embeddings[j])
-                        ))
+                        sim = float(
+                            np.dot(embeddings[i], embeddings[j])
+                            / (np.linalg.norm(embeddings[i]) * np.linalg.norm(embeddings[j]))
+                        )
                         similarities.append(sim)
                         if sim > 0.8:
                             repeated_pairs.append((i, j, sim))
@@ -231,17 +230,10 @@ class OriginalityScorer(Scorer):
         # --- Composite score ---
         if diversity_score is not None:
             # ML mode: 40% diversity, 35% claims, 25% attribution
-            final_score = (
-                diversity_score * 0.40
-                + claim_score * 0.35
-                + attribution_score * 0.25
-            )
+            final_score = diversity_score * 0.40 + claim_score * 0.35 + attribution_score * 0.25
         else:
             # Heuristic-only: 60% claims, 40% attribution
-            final_score = (
-                claim_score * 0.60
-                + attribution_score * 0.40
-            )
+            final_score = claim_score * 0.60 + attribution_score * 0.40
 
         final_score = max(0.0, min(1.0, final_score))
 
@@ -259,11 +251,13 @@ class OriginalityScorer(Scorer):
                 # Find position of paragraph i in original text
                 pos = text.find(paragraphs[i][:50])
                 if pos >= 0:
-                    highlights.append(MatchHighlight(
-                        text=f"Paragraph {i+1} similar to paragraph {j+1} ({sim:.2f})",
-                        category="repeated_idea",
-                        position=pos,
-                    ))
+                    highlights.append(
+                        MatchHighlight(
+                            text=f"Paragraph {i + 1} similar to paragraph {j + 1} ({sim:.2f})",
+                            category="repeated_idea",
+                            position=pos,
+                        )
+                    )
 
         highlights.sort(key=lambda h: h.position)
 
@@ -280,29 +274,34 @@ class OriginalityScorer(Scorer):
             "ml_available": _HAS_ML,
         }
 
-        if diversity_value is not None:
+        if diversity_value is not None and diversity_score is not None:
             details["semantic_diversity"] = round(diversity_value, 3)
             details["diversity_score"] = round(diversity_score, 3)
 
         signal_count = experience_count + novel_count + common_count + attribution_count
         signal_types = 5 if diversity_score is not None else 4
         ci_lower, ci_upper = compute_confidence_interval(
-            final_score, word_count, signal_count, signal_types=signal_types,
+            final_score,
+            word_count,
+            signal_count,
+            signal_types=signal_types,
         )
 
         return ScoreResult(
             name=self.name,
             score=final_score,
-            explanation=self._explain(final_score, experience_count, novel_count,
-                                      common_count, diversity_value),
+            explanation=self._explain(
+                final_score, experience_count, novel_count, common_count, diversity_value
+            ),
             highlights=highlights,
             ci_lower=ci_lower,
             ci_upper=ci_upper,
             details=details,
         )
 
-    def _explain(self, score: float, experience: int, novel: int,
-                 common: int, diversity: float | None) -> str:
+    def _explain(
+        self, score: float, experience: int, novel: int, common: int, diversity: float | None
+    ) -> str:
         parts = []
 
         if experience > 0:

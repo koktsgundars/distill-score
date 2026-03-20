@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Literal
 
-from distill.scorer import ScoreResult, Scorer, get_scorer, list_scorers
+from distill.scorer import Scorer, ScoreResult, get_scorer, list_scorers
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 _MIN_PARAGRAPH_WORDS = 30
@@ -91,9 +91,7 @@ class QualityReport:
         """Position-weighted paragraph score, or None if no paragraphs."""
         if not self.paragraph_scores:
             return None
-        weighted_sum = sum(
-            ps.overall_score * ps.position_weight for ps in self.paragraph_scores
-        )
+        weighted_sum = sum(ps.overall_score * ps.position_weight for ps in self.paragraph_scores)
         weight_total = sum(ps.position_weight for ps in self.paragraph_scores)
         return weighted_sum / weight_total if weight_total > 0 else None
 
@@ -282,9 +280,7 @@ class Pipeline:
             paragraph_scores=paragraph_scores,
         )
 
-    def _score_paragraphs(
-        self, text: str, metadata: dict | None = None
-    ) -> list[ParagraphScore]:
+    def _score_paragraphs(self, text: str, metadata: dict | None = None) -> list[ParagraphScore]:
         """Score individual paragraphs within the text."""
         paragraphs = _PARAGRAPH_SPLIT.split(text.strip())
         scored: list[ParagraphScore] = []
@@ -309,17 +305,19 @@ class Pipeline:
             para_overall = weighted_sum / total_weight if total_weight > 0 else 0.0
             preview = para[:80] + ("..." if len(para) > 80 else "")
 
-            scored.append(ParagraphScore(
-                index=idx,
-                text_preview=preview,
-                overall_score=para_overall,
-                word_count=len(words),
-                scores=para_results,
-            ))
+            scored.append(
+                ParagraphScore(
+                    index=idx,
+                    text_preview=preview,
+                    overall_score=para_overall,
+                    word_count=len(words),
+                    scores=para_results,
+                )
+            )
 
         # Assign position weights based on structural role
         pos_weights = _compute_position_weights(len(scored))
-        for ps, (weight, role) in zip(scored, pos_weights):
+        for ps, (weight, role) in zip(scored, pos_weights, strict=True):
             ps.position_weight = weight
             ps.position_role = role
 
@@ -341,6 +339,7 @@ class Pipeline:
         Returns:
             List of (label, QualityReport) pairs in original order.
         """
+
         def _score_one(i: int) -> tuple[int, str, QualityReport]:
             label, text = texts[i]
             if isinstance(metadata, list):
@@ -404,13 +403,15 @@ class Pipeline:
                 dim_winner = "A"
             else:
                 dim_winner = "B"
-            dimension_deltas.append(DimensionDelta(
-                name=result_a.name,
-                score_a=result_a.score,
-                score_b=score_b,
-                delta=delta,
-                winner=dim_winner,
-            ))
+            dimension_deltas.append(
+                DimensionDelta(
+                    name=result_a.name,
+                    score_a=result_a.score,
+                    score_b=score_b,
+                    delta=delta,
+                    winner=dim_winner,
+                )
+            )
 
         return ComparisonResult(
             label_a=label_a,

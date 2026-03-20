@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 
 import click
 from rich.console import Console
@@ -120,18 +121,17 @@ def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str, dict | 
             return extracted.get("title", source), extracted["text"], metadata
         except Exception as e:
             console.print(f"[red]Error fetching URL: {e}[/red]")
-            raise SystemExit(1)
+            raise SystemExit(1) from e
     else:
         try:
             with open(source) as f:
                 return source, f.read(), None
-        except FileNotFoundError:
+        except FileNotFoundError as err:
             console.print(f"[red]File not found: {source}[/red]")
-            raise SystemExit(1)
+            raise SystemExit(1) from err
 
 
-def _report_to_dict(report, source: str | None = None,
-                    include_highlights: bool = False) -> dict:
+def _report_to_dict(report, source: str | None = None, include_highlights: bool = False) -> dict:
     """Convert a QualityReport to a JSON-serializable dict."""
     data = report.to_dict(include_highlights=include_highlights)
     if source is not None:
@@ -156,7 +156,7 @@ def _display_paragraphs(report) -> None:
         dims = "  ".join(f"{r.name[:3]}={r.score:.2f}" for r in ps.scores)
         preview = ps.text_preview.replace("\n", " ")
         return (
-            f'  \u00b6{ps.index + 1:<3} {role_tag:<18}'
+            f"  \u00b6{ps.index + 1:<3} {role_tag:<18}"
             f' "{preview[:50]:<50}"  {ps.overall_score:.2f}  {dims}'
         )
 
@@ -246,12 +246,22 @@ def _display_report_from_dict(data: dict, source: str = "") -> None:
 @click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
 @click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
 @click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
-@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
-              default=None)
+@click.option(
+    "--profile", "-p", help="Scorer profile (default, technical, news, opinion)", default=None
+)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 @click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
-def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragraphs: bool,
-          highlights: bool, profile: str | None, auto_profile: bool, no_cache: bool):
+def score(
+    source: str,
+    scorers: str | None,
+    as_json: bool,
+    as_csv: bool,
+    paragraphs: bool,
+    highlights: bool,
+    profile: str | None,
+    auto_profile: bool,
+    no_cache: bool,
+):
     """Score content quality from a URL or file.
 
     SOURCE can be a URL (https://...) or a file path (- for stdin).
@@ -295,8 +305,14 @@ def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragra
     # Save to cache
     effective_scorer_names = scorer_names or [s.name for s in pipeline._scorers]
     report_dict = report.to_dict(include_highlights=True)
-    cache.put(text, report_dict, source=source, profile=profile,
-              scorer_names=effective_scorer_names, metadata=metadata)
+    cache.put(
+        text,
+        report_dict,
+        source=source,
+        profile=profile,
+        scorer_names=effective_scorer_names,
+        metadata=metadata,
+    )
 
     if pipeline.detected_content_type and not as_json and not as_csv:
         ct = pipeline.detected_content_type
@@ -326,19 +342,32 @@ def score(source: str, scorers: str | None, as_json: bool, as_csv: bool, paragra
 
 @main.command()
 @click.argument("sources", nargs=-1)
-@click.option("--from-file", "from_file", type=click.Path(exists=True),
-              help="Read sources from a file (one per line)")
+@click.option(
+    "--from-file",
+    "from_file",
+    type=click.Path(exists=True),
+    help="Read sources from a file (one per line)",
+)
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.option("--jsonl", "as_jsonl", is_flag=True, help="Output as newline-delimited JSON")
 @click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
-@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
-              default=None)
+@click.option(
+    "--profile", "-p", help="Scorer profile (default, technical, news, opinion)", default=None
+)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 @click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
-def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, as_json: bool,
-          as_jsonl: bool, as_csv: bool, profile: str | None, auto_profile: bool,
-          no_cache: bool):
+def batch(
+    sources: tuple[str, ...],
+    from_file: str | None,
+    scorers: str | None,
+    as_json: bool,
+    as_jsonl: bool,
+    as_csv: bool,
+    profile: str | None,
+    auto_profile: bool,
+    no_cache: bool,
+):
     """Score multiple sources and compare them.
 
     Accepts multiple URLs or file paths as arguments.
@@ -355,7 +384,9 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
             all_sources.extend(line.strip() for line in f if line.strip())
 
     if not all_sources:
-        console.print("[red]No sources provided. Pass URLs/files as arguments or use --from-file.[/red]")
+        console.print(
+            "[red]No sources provided. Pass URLs/files as arguments or use --from-file.[/red]"
+        )
         raise SystemExit(1)
 
     scorer_names = scorers.split(",") if scorers else None
@@ -386,16 +417,14 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
 
     # Score (with per-item cache check)
     pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
-    effective_scorer_names = scorer_names or list(
-        s.name for s in pipeline._scorers
-    )
+    effective_scorer_names = scorer_names or list(s.name for s in pipeline._scorers)
 
     results: list[tuple[str, object]] = []
     to_score_indices: list[int] = []
     to_score_texts: list[tuple[str, str]] = []
     to_score_metadata: list[dict | None] = []
 
-    for i, (label_text, meta) in enumerate(zip(texts, metadata_list)):
+    for i, (label_text, meta) in enumerate(zip(texts, metadata_list, strict=True)):
         label, text = label_text
         if not no_cache:
             cached = cache.get(text, profile=profile, scorer_names=effective_scorer_names)
@@ -412,63 +441,78 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
             idx = to_score_indices[j]
             text = texts[idx][1]
             report_dict = report.to_dict(include_highlights=True)
-            cache.put(text, report_dict, source=source_keys[idx], profile=profile,
-                      scorer_names=effective_scorer_names, metadata=metadata_list[idx])
+            cache.put(
+                text,
+                report_dict,
+                source=source_keys[idx],
+                profile=profile,
+                scorer_names=effective_scorer_names,
+                metadata=metadata_list[idx],
+            )
             results.append((idx, label, report, False))  # type: ignore[arg-type]
 
     # Sort back to original order
     results.sort(key=lambda x: x[0])  # type: ignore[index]
 
     # Unpack — for cached items we have dicts, for scored items we have QualityReport
-    final_results: list[tuple[str, object, bool]] = [
-        (label, data, is_cached) for _, label, data, is_cached in results  # type: ignore[misc]
+    from distill.pipeline import QualityReport
+
+    final_results: list[tuple[str, dict | QualityReport, bool]] = [
+        (label, data, is_cached)
+        for _, label, data, is_cached in results  # type: ignore[misc]
     ]
 
     if as_jsonl:
         import json as json_mod
 
-        for i, (label, data, is_cached) in enumerate(final_results):
+        for i, (_label, data, is_cached) in enumerate(final_results):
             if is_cached:
+                assert isinstance(data, dict)
                 row_data = {"source": source_keys[i], **data}
                 click.echo(json_mod.dumps(row_data))
             else:
                 from distill.export import report_to_jsonl_line
+
+                assert isinstance(data, QualityReport)
                 click.echo(report_to_jsonl_line(data, source=source_keys[i]))
     elif as_json:
         import json
 
         out = []
-        for i, (label, data, is_cached) in enumerate(final_results):
+        for i, (_label, data, is_cached) in enumerate(final_results):
             if is_cached:
+                assert isinstance(data, dict)
                 out.append({"source": source_keys[i], **data})
             else:
+                assert isinstance(data, QualityReport)
                 out.append(_report_to_dict(data, source=source_keys[i]))
         click.echo(json.dumps(out, indent=2))
     elif as_csv:
         from distill.export import report_to_csv_row, reports_to_csv
 
         rows = []
-        for i, (label, data, is_cached) in enumerate(final_results):
+        for i, (_label, data, is_cached) in enumerate(final_results):
             if is_cached:
+                assert isinstance(data, dict)
                 rows.append({"source": source_keys[i], **data})
             else:
+                assert isinstance(data, QualityReport)
                 rows.append(report_to_csv_row(data, source=source_keys[i]))
         click.echo(reports_to_csv(rows), nl=False)
     else:
         # Show individual reports
-        for i, (label, data, is_cached) in enumerate(final_results):
+        for _i, (label, data, is_cached) in enumerate(final_results):
             if is_cached:
+                assert isinstance(data, dict)
                 _display_report_from_dict(data, source=label)
             else:
+                assert isinstance(data, QualityReport)
                 _display_report(data, source=label)
 
         # Ranked summary table — normalize to dicts for uniform access
         ranked_data = []
-        for i, (label, data, is_cached) in enumerate(final_results):
-            if is_cached:
-                d = data
-            else:
-                d = data.to_dict()
+        for i, (label, data, _is_cached) in enumerate(final_results):
+            d = data if isinstance(data, dict) else data.to_dict()
             ranked_data.append((source_keys[i], label, d))
 
         ranked_data.sort(key=lambda x: x[2]["overall_score"], reverse=True)
@@ -479,17 +523,17 @@ def batch(sources: tuple[str, ...], from_file: str | None, scorers: str | None, 
         table.add_column("Overall", justify="right")
         table.add_column("Grade", justify="center")
         first_dims = ranked_data[0][2].get("dimensions", {})
-        for dim_name in first_dims:
-            table.add_column(dim_name.title(), justify="right")
+        for _dim_name in first_dims:
+            table.add_column(_dim_name.title(), justify="right")
 
-        for rank, (src, label, d) in enumerate(ranked_data, 1):
+        for rank, (src, _label, d) in enumerate(ranked_data, 1):
             row = [
                 str(rank),
                 src[:40],
                 f"{d['overall_score']:.3f}",
                 d["grade"],
             ]
-            for dim_name, dim_data in d.get("dimensions", {}).items():
+            for _dim_name, dim_data in d.get("dimensions", {}).items():
                 row.append(f"{dim_data['score']:.3f}")
             table.add_row(*row)
 
@@ -533,8 +577,14 @@ def profiles():
 @click.option("--profile", "-p", help="Scorer profile", default=None)
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
-def compare(source_a: str, source_b: str, as_json: bool, profile: str | None,
-            scorers: str | None, auto_profile: bool):
+def compare(
+    source_a: str,
+    source_b: str,
+    as_json: bool,
+    profile: str | None,
+    scorers: str | None,
+    auto_profile: bool,
+):
     """Compare quality of two sources side by side.
 
     SOURCE_A and SOURCE_B can be URLs or file paths (- for stdin on one).
@@ -549,9 +599,12 @@ def compare(source_a: str, source_b: str, as_json: bool, profile: str | None,
 
     pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
     result = pipeline.compare(
-        text_a, text_b,
-        label_a=label_a, label_b=label_b,
-        metadata_a=meta_a, metadata_b=meta_b,
+        text_a,
+        text_b,
+        label_a=label_a,
+        label_b=label_b,
+        metadata_a=meta_a,
+        metadata_b=meta_b,
     )
 
     if as_json:
@@ -564,8 +617,9 @@ def compare(source_a: str, source_b: str, as_json: bool, profile: str | None,
 
 def _display_comparison(result, source_a: str, source_b: str) -> None:
     """Rich display of a comparison result."""
-    table = Table(title="Comparison", show_header=True, header_style="bold", box=None,
-                  padding=(0, 2))
+    table = Table(
+        title="Comparison", show_header=True, header_style="bold", box=None, padding=(0, 2)
+    )
     table.add_column("Dimension", style="cyan")
     table.add_column(f"A: {source_a[:30]}", justify="right")
     table.add_column(f"B: {source_b[:30]}", justify="right")
@@ -609,20 +663,26 @@ def _display_comparison(result, source_a: str, source_b: str) -> None:
     # Winner banner
     if result.winner == "tie":
         console.print(
-            Panel("[bold yellow]TIE[/bold yellow] — scores are within noise threshold",
-                  border_style="yellow")
+            Panel(
+                "[bold yellow]TIE[/bold yellow] — scores are within noise threshold",
+                border_style="yellow",
+            )
         )
     elif result.winner == "A":
         console.print(
-            Panel(f"[bold green]WINNER: A[/bold green] ({result.label_a}) "
-                  f"by {abs(overall_delta):.3f}",
-                  border_style="green")
+            Panel(
+                f"[bold green]WINNER: A[/bold green] ({result.label_a}) "
+                f"by {abs(overall_delta):.3f}",
+                border_style="green",
+            )
         )
     else:
         console.print(
-            Panel(f"[bold green]WINNER: B[/bold green] ({result.label_b}) "
-                  f"by {abs(overall_delta):.3f}",
-                  border_style="green")
+            Panel(
+                f"[bold green]WINNER: B[/bold green] ({result.label_b}) "
+                f"by {abs(overall_delta):.3f}",
+                border_style="green",
+            )
         )
 
 
@@ -633,16 +693,16 @@ def serve(port: int, host: str):
     """Start the scoring API server for the browser extension."""
     try:
         from distill.server import create_app
-    except ImportError:
+    except ImportError as err:
         console.print(
             "[red]Flask is required for the server. "
             "Install it with: pip install distill-score[server][/red]"
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from err
 
     app = create_app()
     console.print(f"[bold]distill server[/bold] running on http://{host}:{port}")
-    console.print("[dim]POST /score with {{\"html\": \"...\"}} or {{\"text\": \"...\"}}[/dim]")
+    console.print('[dim]POST /score with {{"html": "..."}} or {{"text": "..."}}[/dim]')
     console.print("[dim]GET /health for status[/dim]")
     console.print("[dim]Press Ctrl+C to stop[/dim]\n")
     app.run(host=host, port=port, debug=False)
@@ -786,8 +846,15 @@ def history_export(as_json: bool, as_csv: bool, limit: int, source: str | None):
         import io
 
         buf = io.StringIO()
-        fieldnames = ["id", "source", "profile", "overall_score", "grade", "word_count",
-                       "scored_at"]
+        fieldnames = [
+            "id",
+            "source",
+            "profile",
+            "overall_score",
+            "grade",
+            "word_count",
+            "scored_at",
+        ]
         writer = csv.DictWriter(buf, fieldnames=fieldnames)
         writer.writeheader()
         for entry in entries:
@@ -803,22 +870,42 @@ _GRADE_ORDER = {"A": 4, "B": 3, "C": 2, "D": 1, "F": 0}
 
 @main.command()
 @click.argument("sources", nargs=-1)
-@click.option("--from-file", "from_file", type=click.Path(exists=True),
-              help="Read sources from a file (one per line)")
-@click.option("--min-grade", default="C",
-              type=click.Choice(["A", "B", "C", "D", "F"], case_sensitive=False),
-              help="Minimum acceptable grade (default: C)")
-@click.option("--min-score", default=None, type=float,
-              help="Minimum acceptable overall score (0.0-1.0). Overrides --min-grade.")
+@click.option(
+    "--from-file",
+    "from_file",
+    type=click.Path(exists=True),
+    help="Read sources from a file (one per line)",
+)
+@click.option(
+    "--min-grade",
+    default="C",
+    type=click.Choice(["A", "B", "C", "D", "F"], case_sensitive=False),
+    help="Minimum acceptable grade (default: C)",
+)
+@click.option(
+    "--min-score",
+    default=None,
+    type=float,
+    help="Minimum acceptable overall score (0.0-1.0). Overrides --min-grade.",
+)
 @click.option("--scorers", "-s", help="Comma-separated scorer names", default=None)
 @click.option("--json", "as_json", is_flag=True, help="Output JSON with pass/fail per source")
-@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
-              default=None)
+@click.option(
+    "--profile", "-p", help="Scorer profile (default, technical, news, opinion)", default=None
+)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 @click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
-def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_score: float | None,
-         scorers: str | None, as_json: bool, profile: str | None, auto_profile: bool,
-         no_cache: bool):
+def gate(
+    sources: tuple[str, ...],
+    from_file: str | None,
+    min_grade: str,
+    min_score: float | None,
+    scorers: str | None,
+    as_json: bool,
+    profile: str | None,
+    auto_profile: bool,
+    no_cache: bool,
+):
     """Quality gate — fail if content is below threshold.
 
     Exits 0 if all sources pass, exits 1 if any fail.
@@ -833,8 +920,9 @@ def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_sc
             all_sources.extend(line.strip() for line in f if line.strip())
 
     if not all_sources:
-        console.print("[red]No sources provided. Pass file paths/URLs as arguments "
-                       "or use --from-file.[/red]")
+        console.print(
+            "[red]No sources provided. Pass file paths/URLs as arguments or use --from-file.[/red]"
+        )
         raise SystemExit(1)
 
     scorer_names = scorers.split(",") if scorers else None
@@ -875,8 +963,14 @@ def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_sc
             cache = ScoreCache()
             effective = scorer_names or [s.name for s in pipeline._scorers]
             report_dict = report.to_dict(include_highlights=False)
-            cache.put(text, report_dict, source=src, profile=profile,
-                      scorer_names=effective, metadata=metadata)
+            cache.put(
+                text,
+                report_dict,
+                source=src,
+                profile=profile,
+                scorer_names=effective,
+                metadata=metadata,
+            )
 
         # Determine pass/fail
         if min_score is not None:
@@ -887,17 +981,21 @@ def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_sc
         if not passed:
             any_failed = True
 
-        gate_results.append({
-            "source": src,
-            "score": round(score_val, 3),
-            "grade": grade_val,
-            "passed": passed,
-        })
+        gate_results.append(
+            {
+                "source": src,
+                "score": round(score_val, 3),
+                "grade": grade_val,
+                "passed": passed,
+            }
+        )
 
     if as_json:
         import json
 
-        threshold = {"min_score": min_score} if min_score is not None else {"min_grade": min_grade_upper}
+        threshold = (
+            {"min_score": min_score} if min_score is not None else {"min_grade": min_grade_upper}
+        )
         output = {
             "threshold": threshold,
             "all_passed": not any_failed,
@@ -919,10 +1017,10 @@ def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_sc
         console.print(table)
 
         if any_failed:
-            threshold_str = (f"score >= {min_score}" if min_score is not None
-                             else f"grade >= {min_grade_upper}")
-            console.print(f"\n[red bold]FAILED[/red bold] — "
-                          f"threshold: {threshold_str}")
+            threshold_str = (
+                f"score >= {min_score}" if min_score is not None else f"grade >= {min_grade_upper}"
+            )
+            console.print(f"\n[red bold]FAILED[/red bold] — threshold: {threshold_str}")
         else:
             console.print("\n[green bold]PASSED[/green bold] — all sources meet quality gate")
 
@@ -936,28 +1034,41 @@ def gate(sources: tuple[str, ...], from_file: str | None, min_grade: str, min_sc
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
 @click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
-@click.option("--profile", "-p", help="Scorer profile (default, technical, news, opinion)",
-              default=None)
+@click.option(
+    "--profile", "-p", help="Scorer profile (default, technical, news, opinion)", default=None
+)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type and select profile")
 @click.option("--no-cache", is_flag=True, help="Skip cache reads (still saves to history)")
-@click.option("--debounce", default=2.0, type=float,
-              help="Seconds to wait after last change before re-scoring (default: 2.0)")
-def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
-          highlights: bool, profile: str | None, auto_profile: bool, no_cache: bool,
-          debounce: float):
+@click.option(
+    "--debounce",
+    default=2.0,
+    type=float,
+    help="Seconds to wait after last change before re-scoring (default: 2.0)",
+)
+def watch(
+    source: str,
+    scorers: str | None,
+    as_json: bool,
+    paragraphs: bool,
+    highlights: bool,
+    profile: str | None,
+    auto_profile: bool,
+    no_cache: bool,
+    debounce: float,
+):
     """Watch a file and re-score on changes.
 
     SOURCE must be a file path (URLs and stdin are not supported).
     """
     try:
-        from watchdog.observers import Observer
         from watchdog.events import FileSystemEventHandler
-    except ImportError:
+        from watchdog.observers import Observer
+    except ImportError as err:
         console.print(
             "[red]watchdog is required for watch mode. "
             "Install it with: pip install distill-score[watch][/red]"
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from err
 
     if source == "-":
         raise click.UsageError("Watch mode does not support stdin. Provide a file path.")
@@ -1001,8 +1112,7 @@ def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
             cache = ScoreCache()
             effective = scorer_names or [s.name for s in pipeline._scorers]
             report_dict = report.to_dict(include_highlights=True)
-            cache.put(text, report_dict, source=source, profile=profile,
-                      scorer_names=effective)
+            cache.put(text, report_dict, source=source, profile=profile, scorer_names=effective)
 
         if pipeline.detected_content_type and not as_json:
             ct = pipeline.detected_content_type
@@ -1021,7 +1131,10 @@ def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
                 _display_paragraphs(report)
 
     # Initial score
-    console.print(f"[bold]Watching[/bold] {source} [dim](debounce {debounce}s, Ctrl+C to stop)[/dim]\n")
+    watch_msg = (
+        f"[bold]Watching[/bold] {source} [dim](debounce {debounce}s, Ctrl+C to stop)[/dim]\n"
+    )
+    console.print(watch_msg)
     _score_and_display()
 
     # Debounced file watcher
@@ -1032,7 +1145,9 @@ def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
         """Called after debounce delay."""
         # Clear screen and re-score
         click.clear()
-        console.print(f"[bold]Watching[/bold] {source} [dim](debounce {debounce}s, Ctrl+C to stop)[/dim]\n")
+        console.print(
+            f"[bold]Watching[/bold] {source} [dim](debounce {debounce}s, Ctrl+C to stop)[/dim]\n"
+        )
         _score_and_display()
 
     class _Handler(FileSystemEventHandler):
@@ -1067,17 +1182,32 @@ def watch(source: str, scorers: str | None, as_json: bool, paragraphs: bool,
 
 
 @main.command()
-@click.option("--snapshot", is_flag=True, help="Fetch URLs and save text snapshots before evaluating")
+@click.option(
+    "--snapshot", is_flag=True, help="Fetch URLs and save text snapshots before evaluating"
+)
 @click.option("--refresh", is_flag=True, help="Re-fetch all snapshots even if they exist")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-@click.option("--corpus", "corpus_path", type=click.Path(exists=True), default=None,
-              help="Path to alternate corpus YAML file")
+@click.option(
+    "--corpus",
+    "corpus_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to alternate corpus YAML file",
+)
 @click.option("--profile", "-p", help="Scorer profile for all entries", default=None)
 @click.option("--auto-profile", is_flag=True, help="Auto-detect content type per entry")
-@click.option("--threshold", default=0.70, type=float,
-              help="Minimum Spearman rho to pass (default: 0.70)")
-def evaluate(snapshot: bool, refresh: bool, as_json: bool, corpus_path: str | None,
-             profile: str | None, auto_profile: bool, threshold: float):
+@click.option(
+    "--threshold", default=0.70, type=float, help="Minimum Spearman rho to pass (default: 0.70)"
+)
+def evaluate(
+    snapshot: bool,
+    refresh: bool,
+    as_json: bool,
+    corpus_path: str | None,
+    profile: str | None,
+    auto_profile: bool,
+    threshold: float,
+):
     """Evaluate scoring quality against a proxy-labeled corpus.
 
     Scores all entries in the evaluation corpus, computes rank correlation
@@ -1092,14 +1222,12 @@ def evaluate(snapshot: bool, refresh: bool, as_json: bool, corpus_path: str | No
 
     fetch = snapshot or refresh
 
-    if not as_json:
-        def on_progress(entry_id, index, total, status):
-            console.print(f"  [{index}/{total}] {entry_id}: {status}")
+    def _progress(entry_id: str, index: int, total: int, status: str) -> None:
+        console.print(f"  [{index}/{total}] {entry_id}: {status}")
 
-        if fetch:
-            console.print("[bold]Fetching snapshots...[/bold]")
-    else:
-        on_progress = None
+    on_progress: Callable[..., object] | None = _progress if not as_json else None
+    if not as_json and fetch:
+        console.print("[bold]Fetching snapshots...[/bold]")
 
     report = run_evaluation(
         corpus_path=corpus_path,

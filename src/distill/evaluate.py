@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 # Default paths
-DEFAULT_CORPUS_PATH = Path(__file__).parent.parent.parent / "tests" / "corpus" / "evaluation_corpus.yaml"
+DEFAULT_CORPUS_PATH = (
+    Path(__file__).parent.parent.parent / "tests" / "corpus" / "evaluation_corpus.yaml"
+)
 DEFAULT_SNAPSHOT_DIR = Path(__file__).parent.parent.parent / "tests" / "corpus" / "snapshots"
 
 TIER_NUMERIC = {"high": 3, "medium": 2, "low": 1}
@@ -152,15 +155,17 @@ def load_corpus(path: Path | str | None = None) -> list[CorpusEntry]:
 
     entries = []
     for item in data["entries"]:
-        entries.append(CorpusEntry(
-            id=item["id"],
-            url=item["url"],
-            description=item["description"],
-            tier=item["tier"],
-            content_type=item["content_type"],
-            proxy_source=item.get("proxy_source", ""),
-            tags=item.get("tags", []),
-        ))
+        entries.append(
+            CorpusEntry(
+                id=item["id"],
+                url=item["url"],
+                description=item["description"],
+                tier=item["tier"],
+                content_type=item["content_type"],
+                proxy_source=item.get("proxy_source", ""),
+                tags=item.get("tags", []),
+            )
+        )
     return entries
 
 
@@ -230,7 +235,7 @@ def spearman_rho(x: list[float], y: list[float]) -> tuple[float, float]:
     mean_x = sum(rank_x) / n
     mean_y = sum(rank_y) / n
 
-    cov = sum((rx - mean_x) * (ry - mean_y) for rx, ry in zip(rank_x, rank_y))
+    cov = sum((rx - mean_x) * (ry - mean_y) for rx, ry in zip(rank_x, rank_y, strict=True))
     std_x = math.sqrt(sum((rx - mean_x) ** 2 for rx in rank_x))
     std_y = math.sqrt(sum((ry - mean_y) ** 2 for ry in rank_y))
 
@@ -244,7 +249,7 @@ def spearman_rho(x: list[float], y: list[float]) -> tuple[float, float]:
     if abs(rho) >= 1.0:
         p_value = 0.0
     else:
-        t_stat = rho * math.sqrt((n - 2) / (1 - rho ** 2))
+        t_stat = rho * math.sqrt((n - 2) / (1 - rho**2))
         # Approximate two-tailed p-value using normal distribution for large n
         # For small n this is rough but sufficient for our purposes
         p_value = 2 * _normal_cdf(-abs(t_stat))
@@ -268,14 +273,16 @@ def compute_tier_stats(scored: list[ScoredEntry]) -> list[TierStats]:
         mean = sum(scores) / n
         variance = sum((s - mean) ** 2 for s in scores) / n if n > 1 else 0.0
         std = math.sqrt(variance)
-        stats.append(TierStats(
-            tier=tier,
-            count=n,
-            mean=mean,
-            std=std,
-            min_score=min(scores),
-            max_score=max(scores),
-        ))
+        stats.append(
+            TierStats(
+                tier=tier,
+                count=n,
+                mean=mean,
+                std=std,
+                min_score=min(scores),
+                max_score=max(scores),
+            )
+        )
     return stats
 
 
@@ -294,12 +301,14 @@ def compute_content_type_stats(scored: list[ScoredEntry]) -> list[ContentTypeSta
         tier_values = [float(TIER_NUMERIC[se.entry.tier]) for se in entries]
         score_values = [se.overall_score for se in entries]
         rho, p = spearman_rho(tier_values, score_values)
-        stats.append(ContentTypeStats(
-            content_type=ct,
-            count=len(entries),
-            spearman_rho=rho,
-            p_value=p,
-        ))
+        stats.append(
+            ContentTypeStats(
+                content_type=ct,
+                count=len(entries),
+                spearman_rho=rho,
+                p_value=p,
+            )
+        )
     return stats
 
 
@@ -330,13 +339,15 @@ def compute_metrics(
         if se.predicted_tier == se.entry.tier:
             correct += 1
         else:
-            misclassifications.append(Misclassification(
-                entry_id=se.entry.id,
-                description=se.entry.description,
-                score=se.overall_score,
-                expected_tier=se.entry.tier,
-                predicted_tier=se.predicted_tier,
-            ))
+            misclassifications.append(
+                Misclassification(
+                    entry_id=se.entry.id,
+                    description=se.entry.description,
+                    score=se.overall_score,
+                    expected_tier=se.entry.tier,
+                    predicted_tier=se.predicted_tier,
+                )
+            )
 
     accuracy = correct / len(scored) if scored else 0.0
 
@@ -365,7 +376,7 @@ def run_evaluation(
     fetch_snapshots: bool = False,
     refresh_snapshots: bool = False,
     rho_threshold: float = 0.70,
-    on_progress: callable | None = None,
+    on_progress: Callable[..., object] | None = None,
 ) -> EvaluationReport:
     """Run the full evaluation pipeline.
 
@@ -419,12 +430,14 @@ def run_evaluation(
         metadata = {"url": entry.url}
         report = pipeline.score(text, metadata=metadata)
 
-        scored.append(ScoredEntry(
-            entry=entry,
-            overall_score=report.overall_score,
-            grade=report.grade,
-            predicted_tier=predict_tier(report.overall_score),
-        ))
+        scored.append(
+            ScoredEntry(
+                entry=entry,
+                overall_score=report.overall_score,
+                grade=report.grade,
+                predicted_tier=predict_tier(report.overall_score),
+            )
+        )
 
         if on_progress:
             on_progress(entry.id, i + 1, len(entries), "scored")

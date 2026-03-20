@@ -8,7 +8,6 @@ import time
 
 import pytest
 from click.testing import CliRunner
-
 from distill.cli import main
 
 

@@ -13,8 +13,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
-
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 
 # --- Pattern definitions ---
 
@@ -78,8 +77,9 @@ SPECIFICITY_MARKERS = [
     r"\bhttps?://\S+",  # URLs
     # --- New specificity patterns ---
     r"\b(?:faster|slower|better|worse|cheaper|larger|smaller) than\b",  # comparisons
-    r"\b(?:we|I) (?:found|noticed|discovered|observed|measured|tested|built|ran|saw)\b",  # practitioner experience
-    r"\bif (?:your|the) \w+ (?:is|are|has|exceeds?|needs?|requires?)\b",  # conditional claims (specific)
+    r"\b(?:we|I) (?:found|noticed|discovered|observed"
+    r"|measured|tested|built|ran|saw)\b",  # practitioner experience
+    r"\bif (?:your|the) \w+ " r"(?:is|are|has|exceeds?|needs?|requires?)\b",  # conditional
     r"\b[a-z_]{2,}(?:\(\)|\.)[a-z_]+",  # code-like identifiers (func() or obj.method)
     r"\b(?:increased|decreased|improved|reduced|dropped|grew|rose|fell) by\b",  # quantified changes
     r"\b\d+(?:\.\d+)?\s*(?:x|×)\b",  # multiplier comparisons (3x, 2.5×)
@@ -113,15 +113,11 @@ def _count_matches(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
 
 
-def _find_matches(
-    patterns: list[re.Pattern], text: str, category: str
-) -> list[MatchHighlight]:
+def _find_matches(patterns: list[re.Pattern], text: str, category: str) -> list[MatchHighlight]:
     matches = []
     for p in patterns:
         for m in p.finditer(text):
-            matches.append(MatchHighlight(
-                text=m.group(), category=category, position=m.start()
-            ))
+            matches.append(MatchHighlight(text=m.group(), category=category, position=m.start()))
     return matches
 
 
@@ -145,7 +141,7 @@ def _unique_word_ratio(text: str) -> float:
     actual_unique = len(set(words))
     # Heap's Law: expected unique ≈ K * N^beta
     # Cap at 80% of total words (can't exceed total)
-    expected_unique = min(7 * (n ** 0.55), n * 0.80)
+    expected_unique = min(7 * (n**0.55), n * 0.80)
     if expected_unique == 0:
         return 0.0
     # Ratio > 1.0 means richer than typical, < 1.0 means less rich
@@ -268,7 +264,10 @@ class SubstanceScorer(Scorer):
 
         signal_count = filler_count + hedge_count + specific_count + generic_starts
         ci_lower, ci_upper = compute_confidence_interval(
-            score, word_count, signal_count, signal_types=4,
+            score,
+            word_count,
+            signal_count,
+            signal_types=4,
         )
 
         return ScoreResult(

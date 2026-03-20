@@ -11,9 +11,9 @@ from typing import ClassVar
 class MatchHighlight:
     """A matched phrase found during scoring."""
 
-    text: str          # the matched phrase
-    category: str      # e.g. "filler", "specificity", "qualification", "overconfidence"
-    position: int      # char offset in source text
+    text: str  # the matched phrase
+    category: str  # e.g. "filler", "specificity", "qualification", "overconfidence"
+    position: int  # char offset in source text
 
     def to_dict(self) -> dict:
         """Convert to a JSON-serializable dict."""

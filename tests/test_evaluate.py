@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from distill.evaluate import (
     CorpusEntry,
     ScoredEntry,
@@ -16,7 +15,6 @@ from distill.evaluate import (
     save_snapshot,
     spearman_rho,
 )
-
 
 # --- Spearman correlation tests ---
 
@@ -147,11 +145,16 @@ class TestLoadCorpus:
 class TestTierStats:
     def _make_scored(self, tier: str, score: float) -> ScoredEntry:
         entry = CorpusEntry(
-            id=f"{tier}_{score}", url="https://example.com",
-            description="test", tier=tier, content_type="technical",
+            id=f"{tier}_{score}",
+            url="https://example.com",
+            description="test",
+            tier=tier,
+            content_type="technical",
         )
         return ScoredEntry(
-            entry=entry, overall_score=score, grade="C",
+            entry=entry,
+            overall_score=score,
+            grade="C",
             predicted_tier=predict_tier(score),
         )
 
@@ -179,11 +182,16 @@ class TestTierStats:
 class TestComputeMetrics:
     def _make_scored(self, tier: str, score: float, content_type: str = "technical") -> ScoredEntry:
         entry = CorpusEntry(
-            id=f"{tier}_{score}", url="https://example.com",
-            description=f"test {tier}", tier=tier, content_type=content_type,
+            id=f"{tier}_{score}",
+            url="https://example.com",
+            description=f"test {tier}",
+            tier=tier,
+            content_type=content_type,
         )
         return ScoredEntry(
-            entry=entry, overall_score=score, grade="C",
+            entry=entry,
+            overall_score=score,
+            grade="C",
             predicted_tier=predict_tier(score),
         )
 
@@ -222,7 +230,7 @@ class TestComputeMetrics:
     def test_misclassifications_tracked(self):
         scored = [
             self._make_scored("high", 0.20),  # will predict low
-            self._make_scored("low", 0.80),   # will predict high
+            self._make_scored("low", 0.80),  # will predict high
             self._make_scored("medium", 0.45),
         ]
         report = compute_metrics(scored)

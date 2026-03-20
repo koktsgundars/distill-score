@@ -2,7 +2,6 @@
 
 from distill.scorer import get_scorer
 
-
 WELL_CALIBRATED = """
 We found that migrating our PostgreSQL cluster from version 14 to 16 resulted in
 significant performance improvements. Latency, defined as the time between sending
@@ -107,9 +106,9 @@ class TestComplexityScorer:
         result = self.scorer.score(WELL_CALIBRATED)
         text_len = len(WELL_CALIBRATED)
         for h in result.highlights:
-            assert 0 <= h.position < text_len, (
-                f"Position {h.position} out of bounds for text length {text_len}"
-            )
+            assert (
+                0 <= h.position < text_len
+            ), f"Position {h.position} out of bounds for text length {text_len}"
 
     def test_short_text_neutral(self):
         result = self.scorer.score(SHORT_TEXT)
@@ -142,11 +141,19 @@ class TestComplexityScorer:
         short_result = self.scorer.score(WELL_CALIBRATED)
         long_text = WELL_CALIBRATED * 3
         long_result = self.scorer.score(long_text)
-        assert long_result.details["reading_time_minutes"] > short_result.details["reading_time_minutes"]
+        assert (
+            long_result.details["reading_time_minutes"]
+            > short_result.details["reading_time_minutes"]
+        )
 
     def test_complexity_level_valid(self):
         result = self.scorer.score(WELL_CALIBRATED)
-        assert result.details["complexity_level"] in {"beginner", "intermediate", "advanced", "expert"}
+        assert result.details["complexity_level"] in {
+            "beginner",
+            "intermediate",
+            "advanced",
+            "expert",
+        }
 
     def test_jargon_count_positive_for_technical(self):
         result = self.scorer.score(WELL_CALIBRATED)

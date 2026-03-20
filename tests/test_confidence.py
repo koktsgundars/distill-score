@@ -12,7 +12,9 @@ def test_short_text_wide_interval():
 
 def test_long_text_narrow_interval():
     """Long texts with many signals should produce narrower intervals."""
-    lower, upper = compute_confidence_interval(0.5, word_count=3000, signal_count=50, signal_types=4)
+    lower, upper = compute_confidence_interval(
+        0.5, word_count=3000, signal_count=50, signal_types=4
+    )
     half_width = (upper - lower) / 2
     assert half_width < 0.05
 
@@ -41,15 +43,19 @@ def test_more_signal_types_narrows_interval():
 
 def test_low_signal_density_wider():
     """Low signal density should produce wider intervals than high density."""
-    lower_low, upper_low = compute_confidence_interval(0.5, word_count=500, signal_count=1, signal_types=1)
-    lower_high, upper_high = compute_confidence_interval(0.5, word_count=500, signal_count=50, signal_types=1)
+    lower_low, upper_low = compute_confidence_interval(
+        0.5, word_count=500, signal_count=1, signal_types=1
+    )
+    lower_high, upper_high = compute_confidence_interval(
+        0.5, word_count=500, signal_count=50, signal_types=1
+    )
     assert (upper_low - lower_low) > (upper_high - lower_high)
 
 
 def test_all_scorers_produce_ci():
     """All registered scorers should populate ci_lower and ci_upper."""
     import distill.scorers  # noqa: F401
-    from distill.scorer import list_scorers, get_scorer
+    from distill.scorer import get_scorer, list_scorers
 
     text = (
         "We migrated our payment service from a monolith to a separate deployment. "

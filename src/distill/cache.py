@@ -9,7 +9,6 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 _DEFAULT_DB_DIR = Path.home() / ".distill"
 _DEFAULT_DB_PATH = _DEFAULT_DB_DIR / "history.db"
 

@@ -10,12 +10,12 @@ with varied sentence structure.
 
 from __future__ import annotations
 
-import re
 import math
+import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import ScoreResult, Scorer, register
+from distill.scorer import Scorer, ScoreResult, register
 
 
 def _syllable_count(word: str) -> int:
@@ -97,7 +97,8 @@ class ReadabilityScorer(Scorer):
         word_count = len(words)
         if word_count < 20:
             return ScoreResult(
-                name=self.name, score=0.5,
+                name=self.name,
+                score=0.5,
                 explanation="Too short to assess readability.",
                 details={"word_count": word_count},
             )
@@ -164,7 +165,10 @@ class ReadabilityScorer(Scorer):
 
         signal_count = len(sentences) + structural_elements + para_count
         ci_lower, ci_upper = compute_confidence_interval(
-            score, word_count, signal_count, signal_types=5,
+            score,
+            word_count,
+            signal_count,
+            signal_types=5,
         )
 
         return ScoreResult(

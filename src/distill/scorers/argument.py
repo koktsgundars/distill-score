@@ -15,7 +15,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 
 # --- Pattern definitions ---
 
@@ -101,9 +101,7 @@ UNSUPPORTED_PATTERNS = [
 ]
 
 # Bare prescriptives: "you should/must/need to" without nearby reasoning
-BARE_PRESCRIPTIVE_RE = re.compile(
-    r"\byou (?:should|must|need to)\b", re.IGNORECASE
-)
+BARE_PRESCRIPTIVE_RE = re.compile(r"\byou (?:should|must|need to)\b", re.IGNORECASE)
 NEARBY_REASONING_RE = re.compile(
     r"\b(?:because|since|given|as|due to|in order to|so that)\b", re.IGNORECASE
 )
@@ -123,15 +121,11 @@ def _count(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
 
 
-def _find_matches(
-    patterns: list[re.Pattern], text: str, category: str
-) -> list[MatchHighlight]:
+def _find_matches(patterns: list[re.Pattern], text: str, category: str) -> list[MatchHighlight]:
     matches = []
     for p in patterns:
         for m in p.finditer(text):
-            matches.append(MatchHighlight(
-                text=m.group(), category=category, position=m.start()
-            ))
+            matches.append(MatchHighlight(text=m.group(), category=category, position=m.start()))
     return matches
 
 
@@ -227,7 +221,10 @@ class ArgumentScorer(Scorer):
 
         signal_count = claim_count + evidence_count + counter_count + total_unsupported
         ci_lower, ci_upper = compute_confidence_interval(
-            score, word_count, signal_count, signal_types=5,
+            score,
+            word_count,
+            signal_count,
+            signal_types=5,
         )
 
         return ScoreResult(

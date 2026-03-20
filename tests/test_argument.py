@@ -2,7 +2,6 @@
 
 from distill.scorer import get_scorer
 
-
 EXPERT_CONTENT = """
 We found that migrating our PostgreSQL cluster from 14 to 16 resulted in
 significant performance changes. For example, latency improved by approximately
@@ -56,9 +55,9 @@ class TestArgumentScorer:
         expert = self.scorer.score(EXPERT_CONTENT)
         slop = self.scorer.score(AI_SLOP)
         gap = expert.score - slop.score
-        assert gap > 0.20, (
-            f"Expert ({expert.score:.3f}) - slop ({slop.score:.3f}) = {gap:.3f}, expected > 0.20"
-        )
+        assert (
+            gap > 0.20
+        ), f"Expert ({expert.score:.3f}) - slop ({slop.score:.3f}) = {gap:.3f}, expected > 0.20"
 
     def test_highlights_populated(self):
         result = self.scorer.score(EXPERT_CONTENT)
@@ -79,9 +78,9 @@ class TestArgumentScorer:
         result = self.scorer.score(EXPERT_CONTENT)
         text_len = len(EXPERT_CONTENT)
         for h in result.highlights:
-            assert 0 <= h.position < text_len, (
-                f"Position {h.position} out of bounds for text length {text_len}"
-            )
+            assert (
+                0 <= h.position < text_len
+            ), f"Position {h.position} out of bounds for text length {text_len}"
 
     def test_short_text_neutral(self):
         result = self.scorer.score(SHORT_TEXT)

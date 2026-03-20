@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import json
 
-from click.testing import CliRunner
-
 import distill
+from click.testing import CliRunner
 from distill.cli import main
 from distill.pipeline import ComparisonResult, DimensionDelta, Pipeline
-
 
 EXPERT_CONTENT = """
 We migrated our payment service from a monolith to a separate deployment in Q3 2024.
@@ -110,9 +108,7 @@ class TestConvenienceCompare:
         assert isinstance(result, ComparisonResult)
 
     def test_compare_with_labels(self):
-        result = distill.compare(
-            EXPERT_CONTENT, AI_SLOP, label_a="Good", label_b="Bad"
-        )
+        result = distill.compare(EXPERT_CONTENT, AI_SLOP, label_a="Good", label_b="Bad")
         assert result.label_a == "Good"
         assert result.label_b == "Bad"
 

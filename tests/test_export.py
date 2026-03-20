@@ -7,11 +7,9 @@ import io
 import json
 
 from click.testing import CliRunner
-
 from distill.cli import main
 from distill.export import report_to_csv_row, report_to_jsonl_line, reports_to_csv
 from distill.pipeline import Pipeline
-
 
 SAMPLE_TEXT = """
 We migrated our PostgreSQL cluster from 14 to 16 in January 2025. The process took

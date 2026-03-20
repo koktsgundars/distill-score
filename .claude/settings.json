@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; echo \"$f\" | grep -qE '\\.py$' && ruff check --fix \"$f\" && ruff format \"$f\"; } 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Running ruff..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/gundarskokts/repos/distill-score && pytest --cov=distill -q 2>&1 | tail -5",
+            "timeout": 120,
+            "statusMessage": "Running tests..."
+          }
+        ]
+      }
+    ]
+  }
+}

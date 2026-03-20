@@ -24,14 +24,15 @@ class ContentType:
 # --- Signal patterns ---
 
 _TECHNICAL_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
-        r"```",                                      # code fences
-        r"`[a-zA-Z_]\w*(?:\(\))?`",                  # inline code
-        r"\bv\d+\.\d+",                              # version numbers (v2.3, v1.0.1)
+    re.compile(p, re.IGNORECASE)
+    for p in [
+        r"```",  # code fences
+        r"`[a-zA-Z_]\w*(?:\(\))?`",  # inline code
+        r"\bv\d+\.\d+",  # version numbers (v2.3, v1.0.1)
         r"\b\d+(?:\.\d+)?(?:ms|s|gb|mb|kb|mhz|ghz|fps|rpm|%)\b",  # measurements
         r"\bwe (?:deployed|tested|found|measured|observed|implemented|migrated|built)\b",
         r"\b(?:p50|p95|p99|latency|throughput|benchmark)\b",
-        r"\b[a-zA-Z_]\w*\([^)]*\)",                  # function calls: func(), foo(bar)
+        r"\b[a-zA-Z_]\w*\([^)]*\)",  # function calls: func(), foo(bar)
         r"\b(?:API|SDK|CLI|ORM|SQL|HTTP|TCP|UDP|DNS|TLS|SSL)\b",
         r"\b(?:def|class|import|return|function|const|let|var)\b",
         r"\b(?:docker|kubernetes|k8s|nginx|postgres|redis|kafka)\b",
@@ -40,29 +41,32 @@ _TECHNICAL_PATTERNS = [
 ]
 
 _NEWS_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
+    re.compile(p, re.IGNORECASE)
+    for p in [
         r"\baccording to\b",
         r"\bsources? (?:say|said|told|confirmed|reported|familiar)\b",
         r'\b(?:said|told|stated|announced|confirmed) (?:in |that |")',
         r"\b(?:spokesperson|official|representative|analyst) (?:said|told|for)\b",
-        r'(?:^|\n)\s*(?:By|BY) [A-Z][a-z]+ [A-Z][a-z]+',  # bylines
+        r"(?:^|\n)\s*(?:By|BY) [A-Z][a-z]+ [A-Z][a-z]+",  # bylines
         r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b",
         r"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}",
-        r'\b(?:he|she|they) (?:said|added|noted|explained|argued)\b',
+        r"\b(?:he|she|they) (?:said|added|noted|explained|argued)\b",
         r"\breported (?:by|that|on)\b",
         r"\b(?:Reuters|AP|AFP|Bloomberg|CNN|BBC|NYT)\b",
     ]
 ]
 
 _OPINION_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
+    re.compile(p, re.IGNORECASE)
+    for p in [
         r"\bI (?:think|believe|feel|argue|contend|suspect|would)\b",
         r"\bin my (?:experience|view|opinion|estimation)\b",
         r"\bpersonally,?\b",
         r"\bto me,?\b",
         r"\b(?:that said|however|on the other hand|nevertheless)\b",
         r"\bthe (?:problem|issue|trouble) (?:with|is)\b",
-        r"\bwhat (?:most people|many|nobody|few) (?:don't |fail to )?(?:realize|understand|see|get)\b",
+        r"\bwhat (?:most people|many|nobody|few) "
+        r"(?:don't |fail to )?(?:realize|understand|see|get)\b",
         r"\bwe should\b",
         r"\bI'?d (?:argue|suggest|say|recommend)\b",
         r"\bmy (?:take|view|read|sense) (?:is|on)\b",
@@ -76,33 +80,63 @@ _CONFIDENCE_THRESHOLD = 0.15
 # --- URL signal patterns ---
 
 _NEWS_DOMAINS = {
-    "reuters.com", "bbc.com", "bbc.co.uk", "nytimes.com", "washingtonpost.com",
-    "theguardian.com", "apnews.com", "bloomberg.com", "cnn.com", "npr.org",
-    "aljazeera.com", "politico.com", "axios.com",
+    "reuters.com",
+    "bbc.com",
+    "bbc.co.uk",
+    "nytimes.com",
+    "washingtonpost.com",
+    "theguardian.com",
+    "apnews.com",
+    "bloomberg.com",
+    "cnn.com",
+    "npr.org",
+    "aljazeera.com",
+    "politico.com",
+    "axios.com",
 }
 
 _NEWS_URL_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
-        r"/news/", r"/politics/", r"/world/", r"/breaking/",
-        r"/business/", r"/economy/", r"/markets/",
+    re.compile(p, re.IGNORECASE)
+    for p in [
+        r"/news/",
+        r"/politics/",
+        r"/world/",
+        r"/breaking/",
+        r"/business/",
+        r"/economy/",
+        r"/markets/",
     ]
 ]
 
 _TECHNICAL_DOMAINS = {
-    "github.com", "stackoverflow.com", "arxiv.org", "developer.mozilla.org",
-    "docs.python.org", "kubernetes.io", "docs.docker.com",
+    "github.com",
+    "stackoverflow.com",
+    "arxiv.org",
+    "developer.mozilla.org",
+    "docs.python.org",
+    "kubernetes.io",
+    "docs.docker.com",
 }
 
 _TECHNICAL_URL_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
-        r"/docs/", r"/engineering/", r"/api/", r"/technical/",
+    re.compile(p, re.IGNORECASE)
+    for p in [
+        r"/docs/",
+        r"/engineering/",
+        r"/api/",
+        r"/technical/",
         r"/blog/.*(?:engineering|infrastructure|scale|deploy|migration)",
     ]
 ]
 
 _OPINION_URL_PATTERNS = [
-    re.compile(p, re.IGNORECASE) for p in [
-        r"/opinion/", r"/editorial/", r"/column/", r"/commentary/", r"/op-ed/",
+    re.compile(p, re.IGNORECASE)
+    for p in [
+        r"/opinion/",
+        r"/editorial/",
+        r"/column/",
+        r"/commentary/",
+        r"/op-ed/",
     ]
 ]
 
@@ -120,7 +154,7 @@ def _url_signals(url: str) -> dict[str, float]:
     except Exception:
         return boosts
 
-    domain = parsed.netloc.lower().lstrip("www.")
+    domain = parsed.netloc.lower().removeprefix("www.")
     path = parsed.path.lower()
 
     # Domain signals

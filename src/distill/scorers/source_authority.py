@@ -19,7 +19,7 @@ from typing import ClassVar
 from urllib.parse import urlparse
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 
 # --- Check for optional WHOIS dependency ---
 
@@ -36,95 +36,186 @@ except ImportError:
 # Scores 0.65–0.95 for well-known authoritative sources
 HIGH_AUTHORITY_DOMAINS: dict[str, float] = {
     # Wire services & major newspapers
-    "reuters.com": 0.90, "apnews.com": 0.90, "bbc.com": 0.85, "bbc.co.uk": 0.85,
-    "nytimes.com": 0.85, "washingtonpost.com": 0.80, "theguardian.com": 0.80,
-    "wsj.com": 0.80, "ft.com": 0.80, "economist.com": 0.80,
-    "propublica.org": 0.85, "theatlantic.com": 0.75, "newyorker.com": 0.75,
-    "npr.org": 0.80, "pbs.org": 0.80,
+    "reuters.com": 0.90,
+    "apnews.com": 0.90,
+    "bbc.com": 0.85,
+    "bbc.co.uk": 0.85,
+    "nytimes.com": 0.85,
+    "washingtonpost.com": 0.80,
+    "theguardian.com": 0.80,
+    "wsj.com": 0.80,
+    "ft.com": 0.80,
+    "economist.com": 0.80,
+    "propublica.org": 0.85,
+    "theatlantic.com": 0.75,
+    "newyorker.com": 0.75,
+    "npr.org": 0.80,
+    "pbs.org": 0.80,
     # Scientific & academic publishers
-    "nature.com": 0.95, "science.org": 0.95, "thelancet.com": 0.90,
-    "nejm.org": 0.90, "bmj.com": 0.90, "cell.com": 0.90,
-    "pnas.org": 0.90, "arxiv.org": 0.80, "pubmed.ncbi.nlm.nih.gov": 0.85,
-    "scholar.google.com": 0.75, "jstor.org": 0.85, "springer.com": 0.80,
-    "wiley.com": 0.80, "acm.org": 0.85, "ieee.org": 0.85,
+    "nature.com": 0.95,
+    "science.org": 0.95,
+    "thelancet.com": 0.90,
+    "nejm.org": 0.90,
+    "bmj.com": 0.90,
+    "cell.com": 0.90,
+    "pnas.org": 0.90,
+    "arxiv.org": 0.80,
+    "pubmed.ncbi.nlm.nih.gov": 0.85,
+    "scholar.google.com": 0.75,
+    "jstor.org": 0.85,
+    "springer.com": 0.80,
+    "wiley.com": 0.80,
+    "acm.org": 0.85,
+    "ieee.org": 0.85,
     # Government & institutional
-    "cdc.gov": 0.90, "nih.gov": 0.90, "who.int": 0.85,
-    "nasa.gov": 0.90, "noaa.gov": 0.85, "fda.gov": 0.85,
-    "europa.eu": 0.80, "un.org": 0.80, "worldbank.org": 0.80,
+    "cdc.gov": 0.90,
+    "nih.gov": 0.90,
+    "who.int": 0.85,
+    "nasa.gov": 0.90,
+    "noaa.gov": 0.85,
+    "fda.gov": 0.85,
+    "europa.eu": 0.80,
+    "un.org": 0.80,
+    "worldbank.org": 0.80,
     # Tech & engineering
-    "github.com": 0.65, "stackoverflow.com": 0.65,
-    "engineering.fb.com": 0.80, "blog.google": 0.75, "aws.amazon.com": 0.70,
-    "cloud.google.com": 0.70, "docs.microsoft.com": 0.70, "learn.microsoft.com": 0.70,
-    "developer.mozilla.org": 0.85, "web.dev": 0.75,
-    "research.google": 0.85, "ai.meta.com": 0.80, "openai.com": 0.75,
-    "anthropic.com": 0.75, "deepmind.google": 0.85,
-    "martinfowler.com": 0.80, "jvns.ca": 0.75, "danluu.com": 0.75,
-    "rachelbythebay.com": 0.75, "simonwillison.net": 0.75,
-    "paulgraham.com": 0.75, "joelonsoftware.com": 0.75,
-    "blog.codinghorror.com": 0.70, "brandur.org": 0.70,
+    "github.com": 0.65,
+    "stackoverflow.com": 0.65,
+    "engineering.fb.com": 0.80,
+    "blog.google": 0.75,
+    "aws.amazon.com": 0.70,
+    "cloud.google.com": 0.70,
+    "docs.microsoft.com": 0.70,
+    "learn.microsoft.com": 0.70,
+    "developer.mozilla.org": 0.85,
+    "web.dev": 0.75,
+    "research.google": 0.85,
+    "ai.meta.com": 0.80,
+    "openai.com": 0.75,
+    "anthropic.com": 0.75,
+    "deepmind.google": 0.85,
+    "martinfowler.com": 0.80,
+    "jvns.ca": 0.75,
+    "danluu.com": 0.75,
+    "rachelbythebay.com": 0.75,
+    "simonwillison.net": 0.75,
+    "paulgraham.com": 0.75,
+    "joelonsoftware.com": 0.75,
+    "blog.codinghorror.com": 0.70,
+    "brandur.org": 0.70,
     # Research & think tanks
-    "brookings.edu": 0.80, "rand.org": 0.80, "pewresearch.org": 0.85,
-    "nber.org": 0.85, "ssrn.com": 0.75,
+    "brookings.edu": 0.80,
+    "rand.org": 0.80,
+    "pewresearch.org": 0.85,
+    "nber.org": 0.85,
+    "ssrn.com": 0.75,
     # Reference
-    "wikipedia.org": 0.65, "britannica.com": 0.75,
-    "snopes.com": 0.70, "factcheck.org": 0.75, "politifact.com": 0.70,
+    "wikipedia.org": 0.65,
+    "britannica.com": 0.75,
+    "snopes.com": 0.70,
+    "factcheck.org": 0.75,
+    "politifact.com": 0.70,
 }
 
 # Scores 0.1–0.4 for known low-quality or content-farm domains
 LOW_AUTHORITY_DOMAINS: dict[str, float] = {
     # Content farms & SEO aggregators
-    "ehow.com": 0.20, "wikihow.com": 0.35, "about.com": 0.30,
-    "hubpages.com": 0.20, "squidoo.com": 0.15, "ezinearticles.com": 0.15,
-    "articlesbase.com": 0.15, "buzzle.com": 0.15,
-    "examiner.com": 0.20, "suite101.com": 0.15,
+    "ehow.com": 0.20,
+    "wikihow.com": 0.35,
+    "about.com": 0.30,
+    "hubpages.com": 0.20,
+    "squidoo.com": 0.15,
+    "ezinearticles.com": 0.15,
+    "articlesbase.com": 0.15,
+    "buzzle.com": 0.15,
+    "examiner.com": 0.20,
+    "suite101.com": 0.15,
     # Clickbait & tabloid
-    "buzzfeed.com": 0.35, "dailymail.co.uk": 0.30, "thesun.co.uk": 0.25,
-    "nypost.com": 0.35, "foxnews.com": 0.35,
+    "buzzfeed.com": 0.35,
+    "dailymail.co.uk": 0.30,
+    "thesun.co.uk": 0.25,
+    "nypost.com": 0.35,
+    "foxnews.com": 0.35,
     # Misinformation-prone
-    "infowars.com": 0.10, "naturalnews.com": 0.10, "breitbart.com": 0.20,
-    "zerohedge.com": 0.20, "rt.com": 0.20,
+    "infowars.com": 0.10,
+    "naturalnews.com": 0.10,
+    "breitbart.com": 0.20,
+    "zerohedge.com": 0.20,
+    "rt.com": 0.20,
     # Generic blog platforms (unvetted content)
-    "medium.com": 0.40, "substack.com": 0.40,
-    "blogspot.com": 0.30, "wordpress.com": 0.30,
-    "tumblr.com": 0.25, "livejournal.com": 0.25,
+    "medium.com": 0.40,
+    "substack.com": 0.40,
+    "blogspot.com": 0.30,
+    "wordpress.com": 0.30,
+    "tumblr.com": 0.25,
+    "livejournal.com": 0.25,
     # Free hosting / user-generated
-    "sites.google.com": 0.25, "weebly.com": 0.25,
-    "wix.com": 0.25, "jimdo.com": 0.25,
+    "sites.google.com": 0.25,
+    "weebly.com": 0.25,
+    "wix.com": 0.25,
+    "jimdo.com": 0.25,
     # Scraper/spam-adjacent
-    "answers.com": 0.20, "ask.com": 0.25,
-    "quora.com": 0.35, "yahoo.com": 0.35,
+    "answers.com": 0.20,
+    "ask.com": 0.25,
+    "quora.com": 0.35,
+    "yahoo.com": 0.35,
 }
 
 # TLD-based fallback scores for unknown domains
 TLD_AUTHORITY: dict[str, float] = {
-    ".edu": 0.80, ".gov": 0.85, ".mil": 0.85,
-    ".org": 0.55, ".int": 0.70,
-    ".com": 0.50, ".net": 0.45, ".co": 0.45,
-    ".io": 0.45, ".dev": 0.50, ".app": 0.45,
-    ".info": 0.35, ".biz": 0.30,
-    ".xyz": 0.30, ".click": 0.20, ".top": 0.20,
-    ".site": 0.30, ".online": 0.30, ".space": 0.30,
+    ".edu": 0.80,
+    ".gov": 0.85,
+    ".mil": 0.85,
+    ".org": 0.55,
+    ".int": 0.70,
+    ".com": 0.50,
+    ".net": 0.45,
+    ".co": 0.45,
+    ".io": 0.45,
+    ".dev": 0.50,
+    ".app": 0.45,
+    ".info": 0.35,
+    ".biz": 0.30,
+    ".xyz": 0.30,
+    ".click": 0.20,
+    ".top": 0.20,
+    ".site": 0.30,
+    ".online": 0.30,
+    ".space": 0.30,
 }
 
 # --- URL structure patterns ---
 
 _POSITIVE_URL_PATTERNS = [
-    r"/research/", r"/docs/", r"/documentation/",
-    r"/papers?/", r"/publications?/", r"/proceedings/",
-    r"/technical/", r"/engineering/", r"/science/",
-    r"/analysis/", r"/report/", r"/studies/",
+    r"/research/",
+    r"/docs/",
+    r"/documentation/",
+    r"/papers?/",
+    r"/publications?/",
+    r"/proceedings/",
+    r"/technical/",
+    r"/engineering/",
+    r"/science/",
+    r"/analysis/",
+    r"/report/",
+    r"/studies/",
     r"/blog/[\w-]{10,}",  # long slug = substantive post
     r"/articles?/\d{4}/",  # year-structured articles
 ]
 
 _NEGATIVE_URL_PATTERNS = [
-    r"/sponsored[/-]", r"/partner[/-]", r"/adverti[sz]",
-    r"/affiliate[/-]", r"/promo(?:tion)?[/-]",
+    r"/sponsored[/-]",
+    r"/partner[/-]",
+    r"/adverti[sz]",
+    r"/affiliate[/-]",
+    r"/promo(?:tion)?[/-]",
     r"/\d+-(?:best|top|ways|things|tips|secrets|hacks|tricks)\b",
     r"/(?:best|top|ultimate|definitive)-\d+",
-    r"/slideshow[/-]", r"/gallery[/-]",
-    r"/click[/-]", r"/redirect[/-]",
-    r"\?utm_", r"&utm_",
+    r"/slideshow[/-]",
+    r"/gallery[/-]",
+    r"/click[/-]",
+    r"/redirect[/-]",
+    r"\?utm_",
+    r"&utm_",
 ]
 
 _positive_url_re = [re.compile(p, re.IGNORECASE) for p in _POSITIVE_URL_PATTERNS]
@@ -167,6 +258,7 @@ _citation_re = [re.compile(p, re.IGNORECASE) for p in _CITATION_PATTERNS]
 
 
 # --- Helper functions ---
+
 
 def _extract_domain(url: str) -> str | None:
     """Extract the domain from a URL, stripping www. prefix."""
@@ -221,17 +313,25 @@ def _score_url_structure(url: str) -> tuple[float, list[MatchHighlight]]:
         m = p.search(url)
         if m:
             positive += 1
-            highlights.append(MatchHighlight(
-                text=m.group(), category="url_positive", position=0,
-            ))
+            highlights.append(
+                MatchHighlight(
+                    text=m.group(),
+                    category="url_positive",
+                    position=0,
+                )
+            )
 
     for p in _negative_url_re:
         m = p.search(url)
         if m:
             negative += 1
-            highlights.append(MatchHighlight(
-                text=m.group(), category="url_negative", position=0,
-            ))
+            highlights.append(
+                MatchHighlight(
+                    text=m.group(),
+                    category="url_negative",
+                    position=0,
+                )
+            )
 
     if positive == 0 and negative == 0:
         return 0.5, highlights
@@ -247,9 +347,13 @@ def _score_author_signals(text: str) -> tuple[float, list[MatchHighlight]]:
     for p in _author_re:
         for m in p.finditer(text):
             matches += 1
-            highlights.append(MatchHighlight(
-                text=m.group(), category="author_signal", position=m.start(),
-            ))
+            highlights.append(
+                MatchHighlight(
+                    text=m.group(),
+                    category="author_signal",
+                    position=m.start(),
+                )
+            )
             if matches >= 5:
                 break
         if matches >= 5:
@@ -274,9 +378,13 @@ def _score_citation_density(text: str) -> tuple[float, list[MatchHighlight]]:
     for p in _citation_re:
         for m in p.finditer(text):
             matches += 1
-            highlights.append(MatchHighlight(
-                text=m.group()[:60], category="citation", position=m.start(),
-            ))
+            highlights.append(
+                MatchHighlight(
+                    text=m.group()[:60],
+                    category="citation",
+                    position=m.start(),
+                )
+            )
 
     # Citations per 100 words
     density = matches * 100 / word_count
@@ -299,8 +407,9 @@ def _score_domain_age(domain: str) -> float | None:
         return None
 
     try:
-        import whois as whois_lib
         from datetime import datetime
+
+        import whois as whois_lib
 
         w = whois_lib.whois(domain)
         creation = w.creation_date
@@ -355,7 +464,7 @@ class SourceAuthorityScorer(Scorer):
         # --- Signal A: Domain reputation ---
         domain_score = None
         domain_match_type = "none"
-        if has_url:
+        if has_url and domain is not None:
             domain_score, domain_match_type = _lookup_domain_score(domain)
 
         # --- Signal B: URL structure ---
@@ -372,7 +481,7 @@ class SourceAuthorityScorer(Scorer):
 
         # --- Signal E: Domain age (optional) ---
         age_score = None
-        if has_url and _HAS_WHOIS:
+        if has_url and _HAS_WHOIS and domain is not None:
             if domain in self._age_cache:
                 age_score = self._age_cache[domain]
             else:
@@ -383,8 +492,8 @@ class SourceAuthorityScorer(Scorer):
         if has_url and age_score is not None:
             # Full mode: domain 30%, URL 15%, author 20%, citations 20%, age 15%
             final_score = (
-                domain_score * 0.30
-                + url_score * 0.15
+                (domain_score or 0.0) * 0.30
+                + (url_score or 0.0) * 0.15
                 + author_score * 0.20
                 + citation_score * 0.20
                 + age_score * 0.15
@@ -392,19 +501,13 @@ class SourceAuthorityScorer(Scorer):
             mode = "full"
         elif has_url:
             # URL mode: domain 35%, URL 20%, author 25%, citations 20%
-            final_score = (
-                domain_score * 0.35
-                + url_score * 0.20
-                + author_score * 0.25
-                + citation_score * 0.20
-            )
+            ds = domain_score or 0.0
+            us = url_score or 0.0
+            final_score = ds * 0.35 + us * 0.20 + author_score * 0.25 + citation_score * 0.20
             mode = "url"
         else:
             # Text-only mode: author 55%, citations 45%
-            final_score = (
-                author_score * 0.55
-                + citation_score * 0.45
-            )
+            final_score = author_score * 0.55 + citation_score * 0.45
             mode = "text-only"
 
         final_score = max(0.0, min(1.0, final_score))
@@ -423,9 +526,9 @@ class SourceAuthorityScorer(Scorer):
         }
         if has_url:
             details["domain"] = domain
-            details["domain_score"] = round(domain_score, 3)
+            details["domain_score"] = round(domain_score, 3) if domain_score is not None else None
             details["domain_match_type"] = domain_match_type
-            details["url_score"] = round(url_score, 3)
+            details["url_score"] = round(url_score, 3) if url_score is not None else None
         if age_score is not None:
             details["age_score"] = round(age_score, 3)
 
@@ -439,7 +542,10 @@ class SourceAuthorityScorer(Scorer):
         )
         signal_types = {"full": 5, "url": 4, "text-only": 2}[mode]
         ci_lower, ci_upper = compute_confidence_interval(
-            final_score, word_count, signal_count, signal_types=signal_types,
+            final_score,
+            word_count,
+            signal_count,
+            signal_types=signal_types,
         )
 
         return ScoreResult(
@@ -452,9 +558,7 @@ class SourceAuthorityScorer(Scorer):
             details=details,
         )
 
-    def _explain(
-        self, score: float, mode: str, domain: str | None, match_type: str
-    ) -> str:
+    def _explain(self, score: float, mode: str, domain: str | None, match_type: str) -> str:
         parts: list[str] = []
 
         if score >= 0.7:

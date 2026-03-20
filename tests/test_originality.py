@@ -1,10 +1,9 @@
 """Tests for the originality scorer."""
 
 import pytest
-from distill.scorer import get_scorer, list_scorers
 from distill import Pipeline
 from distill.profiles import list_profiles
-
+from distill.scorer import get_scorer, list_scorers
 
 # --- Fixtures ---
 
@@ -137,9 +136,9 @@ class TestOriginalityHighlights:
         result = self.scorer.score(EXPERT_CONTENT)
         text_len = len(EXPERT_CONTENT)
         for h in result.highlights:
-            assert 0 <= h.position < text_len, (
-                f"Position {h.position} out of bounds for text length {text_len}"
-            )
+            assert (
+                0 <= h.position < text_len
+            ), f"Position {h.position} out of bounds for text length {text_len}"
 
 
 class TestOriginalityClaimDensity:
@@ -166,13 +165,19 @@ class TestOriginalityML:
     def test_semantic_diversity_computed(self):
         pytest.importorskip("sentence_transformers")
         scorer = get_scorer("originality")
-        result = scorer.score(EXPERT_CONTENT + "\n\n" + SUMMARIZING_CONTENT + "\n\n" + """
+        result = scorer.score(
+            EXPERT_CONTENT
+            + "\n\n"
+            + SUMMARIZING_CONTENT
+            + "\n\n"
+            + """
         The architecture of modern web applications has shifted significantly toward
         microservices. We built our system using event-driven communication between
         services, which reduced coupling but introduced complexity in debugging
         distributed traces. In our experience, the operational overhead is justified
         only when teams exceed 15 engineers working on the same codebase.
-        """)
+        """
+        )
         assert "semantic_diversity" in result.details
 
     def test_repetitive_has_low_diversity(self):
@@ -186,19 +191,31 @@ class TestOriginalityML:
         pytest.importorskip("sentence_transformers")
         scorer = get_scorer("originality")
 
-        diverse_text = EXPERT_CONTENT + "\n\n" + SUMMARIZING_CONTENT + "\n\n" + """
+        diverse_text = (
+            EXPERT_CONTENT
+            + "\n\n"
+            + SUMMARIZING_CONTENT
+            + "\n\n"
+            + """
         The architecture of modern web applications has shifted significantly toward
         microservices. We built our system using event-driven communication between
         services, which reduced coupling but introduced complexity in debugging
         distributed traces. In our experience, the operational overhead is justified
         only when teams exceed 15 engineers working on the same codebase.
         """
+        )
 
         diverse_result = scorer.score(diverse_text)
         repetitive_result = scorer.score(REPETITIVE_CONTENT)
 
-        if "semantic_diversity" in diverse_result.details and "semantic_diversity" in repetitive_result.details:
-            assert diverse_result.details["semantic_diversity"] > repetitive_result.details["semantic_diversity"]
+        if (
+            "semantic_diversity" in diverse_result.details
+            and "semantic_diversity" in repetitive_result.details
+        ):
+            assert (
+                diverse_result.details["semantic_diversity"]
+                > repetitive_result.details["semantic_diversity"]
+            )
 
 
 class TestOriginalityInPipeline:
@@ -211,8 +228,7 @@ class TestOriginalityInPipeline:
     def test_all_profiles_have_originality_weight(self):
         profiles = list_profiles()
         from distill.profiles import get_profile
+
         for name in profiles:
             profile = get_profile(name)
-            assert "originality" in profile.weights, (
-                f"Profile {name!r} missing originality weight"
-            )
+            assert "originality" in profile.weights, f"Profile {name!r} missing originality weight"

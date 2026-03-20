@@ -16,7 +16,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 
 # --- Pattern definitions ---
 
@@ -117,15 +117,11 @@ def _count(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
 
 
-def _find_matches(
-    patterns: list[re.Pattern], text: str, category: str
-) -> list[MatchHighlight]:
+def _find_matches(patterns: list[re.Pattern], text: str, category: str) -> list[MatchHighlight]:
     matches = []
     for p in patterns:
         for m in p.finditer(text):
-            matches.append(MatchHighlight(
-                text=m.group(), category=category, position=m.start()
-            ))
+            matches.append(MatchHighlight(text=m.group(), category=category, position=m.start()))
     return matches
 
 
@@ -173,17 +169,11 @@ def _estimate_reading_time(text: str, word_count: int) -> float:
     # Remaining prose words
     prose_words = max(0, word_count - code_words - list_words)
 
-    time_minutes = (
-        prose_words / base_wpm
-        + code_words / 100.0
-        + list_words / 300.0
-    )
+    time_minutes = prose_words / base_wpm + code_words / 100.0 + list_words / 300.0
     return round(max(0.1, time_minutes), 1)
 
 
-def _classify_complexity(
-    poly_rate: float, jargon_rate: float, concept_rate: float
-) -> str:
+def _classify_complexity(poly_rate: float, jargon_rate: float, concept_rate: float) -> str:
     """Classify content complexity level."""
     # Weighted composite score
     composite = poly_rate * 2.0 + jargon_rate * 0.3 + concept_rate * 0.2
@@ -203,7 +193,9 @@ class ComplexityScorer(Scorer):
     """Measures cognitive load calibration — reading time, jargon balance, and complexity."""
 
     name: ClassVar[str] = "complexity"
-    description: ClassVar[str] = "Reading time + complexity profile: jargon density, concept pacing, cognitive load"
+    description: ClassVar[str] = (
+        "Reading time + complexity profile: jargon density, concept pacing, cognitive load"
+    )
     weight: ClassVar[float] = 0.5
 
     def score(self, text: str, metadata: dict | None = None) -> ScoreResult:
@@ -253,7 +245,7 @@ class ComplexityScorer(Scorer):
             if len(para_densities) >= 2:
                 mean = avg_density
                 variance = sum((d - mean) ** 2 for d in para_densities) / len(para_densities)
-                density_variance = variance ** 0.5  # standard deviation
+                density_variance = variance**0.5  # standard deviation
             else:
                 density_variance = 0.0
         else:
@@ -330,11 +322,13 @@ class ComplexityScorer(Scorer):
         highlights.sort(key=lambda h: h.position)
 
         signal_count = (
-            jargon_count + concept_count + data_density_count
-            + oversimplify_count + needless_count
+            jargon_count + concept_count + data_density_count + oversimplify_count + needless_count
         )
         ci_lower, ci_upper = compute_confidence_interval(
-            score, word_count, signal_count, signal_types=7,
+            score,
+            word_count,
+            signal_count,
+            signal_types=7,
         )
 
         return ScoreResult(

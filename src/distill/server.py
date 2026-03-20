@@ -67,6 +67,7 @@ def create_app() -> Flask:
         # Validate profile name
         if profile:
             from distill.profiles import get_profile
+
             try:
                 get_profile(profile)
             except KeyError as e:
@@ -74,7 +75,9 @@ def create_app() -> Flask:
 
         try:
             pipeline = Pipeline(
-                scorers=scorer_names, profile=profile, auto_profile=auto_profile,
+                scorers=scorer_names,
+                profile=profile,
+                auto_profile=auto_profile,
             )
         except KeyError as e:
             return jsonify({"error": str(e)}), 400

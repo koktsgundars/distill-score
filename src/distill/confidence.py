@@ -41,10 +41,7 @@ def compute_confidence_interval(
     # Signal density adjustment: fewer signals → wider interval
     # signals_per_100w: 0 → factor 2.0, ≥5 → factor 1.0
     signals_per_100w = (signal_count * 100 / word_count) if word_count > 0 else 0.0
-    if signals_per_100w >= 5.0:
-        density_factor = 1.0
-    else:
-        density_factor = 2.0 - (signals_per_100w / 5.0)
+    density_factor = 1.0 if signals_per_100w >= 5.0 else 2.0 - signals_per_100w / 5.0
 
     # Signal type diversity bonus: more categories → slightly narrower
     type_factor = max(0.85, 1.0 - (signal_types - 1) * 0.03)

@@ -16,7 +16,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
 
 # Specific hedges — acknowledging concrete limitations (GOOD)
 SPECIFIC_QUALIFICATIONS = [
@@ -64,7 +64,8 @@ SPECIFIC_QUALIFICATIONS = [
 # Overconfident absolutism (BAD)
 OVERCONFIDENCE_MARKERS = [
     r"\b(?:always|never|every|all|none|no one|everyone|nobody) (?:should|must|will|does|is)\b",
-    r"\bthe (?:best|only|right|correct|proper|definitive) (?:way|approach|method|answer|solution)\b",
+    r"\bthe (?:best|only|right|correct|proper|definitive) "
+    r"(?:way|approach|method|answer|solution)\b",
     r"\bwithout (?:a )?doubt\b",
     r"\bundeniably\b",
     r"\bobviously\b",
@@ -110,15 +111,11 @@ def _count(patterns: list[re.Pattern], text: str) -> int:
     return sum(len(p.findall(text)) for p in patterns)
 
 
-def _find_matches(
-    patterns: list[re.Pattern], text: str, category: str
-) -> list[MatchHighlight]:
+def _find_matches(patterns: list[re.Pattern], text: str, category: str) -> list[MatchHighlight]:
     matches = []
     for p in patterns:
         for m in p.finditer(text):
-            matches.append(MatchHighlight(
-                text=m.group(), category=category, position=m.start()
-            ))
+            matches.append(MatchHighlight(text=m.group(), category=category, position=m.start()))
     return matches
 
 
@@ -127,7 +124,9 @@ class EpistemicScorer(Scorer):
     """Measures intellectual honesty — nuance, qualifications, reasoning vs overconfidence."""
 
     name: ClassVar[str] = "epistemic"
-    description: ClassVar[str] = "Intellectual honesty: nuance and reasoning vs overconfident claims"
+    description: ClassVar[str] = (
+        "Intellectual honesty: nuance and reasoning vs overconfident claims"
+    )
     weight: ClassVar[float] = 1.0
 
     def score(self, text: str, metadata: dict | None = None) -> ScoreResult:
@@ -207,7 +206,10 @@ class EpistemicScorer(Scorer):
 
         signal_count = qualification_count + overconfidence_count + reasoning_count
         ci_lower, ci_upper = compute_confidence_interval(
-            score, word_count, signal_count, signal_types=3,
+            score,
+            word_count,
+            signal_count,
+            signal_types=3,
         )
 
         return ScoreResult(

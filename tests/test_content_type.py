@@ -3,10 +3,8 @@
 import json
 
 from click.testing import CliRunner
-
 from distill.content_type import ContentType, detect_content_type
 from distill.pipeline import Pipeline
-
 
 # --- Detection tests ---
 
@@ -156,6 +154,7 @@ def test_metadata_none_still_works():
 
 # --- Pipeline integration ---
 
+
 def test_auto_profile_changes_weights():
     """auto_profile=True should apply profile weights based on detected type."""
     pipeline_default = Pipeline()
@@ -187,6 +186,7 @@ def test_explicit_profile_overrides_auto():
 
 
 # --- CLI integration ---
+
 
 def test_cli_auto_profile_flag(tmp_path):
     """--auto-profile flag should work on the score command."""

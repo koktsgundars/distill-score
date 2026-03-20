@@ -123,8 +123,9 @@ DRY_RUN_SAMPLES = [
 ]
 
 
-def score_url_entry(pipeline: Pipeline, url: str, description: str,
-                    expected_tier: str, timeout: float) -> dict:
+def score_url_entry(
+    pipeline: Pipeline, url: str, description: str, expected_tier: str, timeout: float
+) -> dict:
     """Score a single URL and return a dashboard entry."""
     from distill.extractors import extract_from_url
 
@@ -178,12 +179,15 @@ def score_inline_entry(pipeline: Pipeline, entry: dict) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate distill calibration dashboard")
-    parser.add_argument("--output", "-o", default="dashboard",
-                        help="Output directory (default: dashboard)")
-    parser.add_argument("--timeout", "-t", type=float, default=15.0,
-                        help="HTTP timeout in seconds (default: 15)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Use inline samples instead of fetching URLs")
+    parser.add_argument(
+        "--output", "-o", default="dashboard", help="Output directory (default: dashboard)"
+    )
+    parser.add_argument(
+        "--timeout", "-t", type=float, default=15.0, help="HTTP timeout in seconds (default: 15)"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Use inline samples instead of fetching URLs"
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output)
@@ -203,8 +207,9 @@ def main():
             results.append(score_url_entry(pipeline, url, description, tier, args.timeout))
 
     # Sort by score descending, nulls last
-    results.sort(key=lambda r: r["overall_score"] if r["overall_score"] is not None else -1,
-                 reverse=True)
+    results.sort(
+        key=lambda r: r["overall_score"] if r["overall_score"] is not None else -1, reverse=True
+    )
 
     dashboard_data = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

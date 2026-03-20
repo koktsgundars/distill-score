@@ -3,11 +3,10 @@
 import os
 import tempfile
 
-import pytest
 import distill
+import pytest
 from distill import Pipeline
-from distill.scorer import ScoreResult, MatchHighlight, list_scorers, get_scorer
-
+from distill.scorer import MatchHighlight, ScoreResult, get_scorer, list_scorers
 
 # --- Fixtures ---
 
@@ -156,11 +155,12 @@ class TestCalibration:
         slop = pipeline.score(AI_SLOP)
 
         assert expert.overall_score > moderate.overall_score, (
-            f"Expert ({expert.overall_score:.3f}) should beat moderate ({moderate.overall_score:.3f})"
+            f"Expert ({expert.overall_score:.3f}) should beat "
+            f"moderate ({moderate.overall_score:.3f})"
         )
-        assert moderate.overall_score > slop.overall_score, (
-            f"Moderate ({moderate.overall_score:.3f}) should beat slop ({slop.overall_score:.3f})"
-        )
+        assert (
+            moderate.overall_score > slop.overall_score
+        ), f"Moderate ({moderate.overall_score:.3f}) should beat slop ({slop.overall_score:.3f})"
 
     def test_expert_slop_separation(self):
         """Expert and slop should be separated by at least 0.25 overall."""
@@ -205,16 +205,19 @@ class TestPositionWeights:
 
     def test_zero_paragraphs(self):
         from distill.pipeline import _compute_position_weights
+
         assert _compute_position_weights(0) == []
 
     def test_one_paragraph(self):
         from distill.pipeline import _compute_position_weights
+
         weights = _compute_position_weights(1)
         assert len(weights) == 1
         assert weights[0] == (1.5, "intro")
 
     def test_two_paragraphs(self):
         from distill.pipeline import _compute_position_weights
+
         weights = _compute_position_weights(2)
         assert len(weights) == 2
         assert weights[0] == (1.5, "intro")
@@ -222,6 +225,7 @@ class TestPositionWeights:
 
     def test_three_paragraphs(self):
         from distill.pipeline import _compute_position_weights
+
         weights = _compute_position_weights(3)
         assert len(weights) == 3
         assert weights[0] == (1.5, "intro")
@@ -230,6 +234,7 @@ class TestPositionWeights:
 
     def test_five_paragraphs(self):
         from distill.pipeline import _compute_position_weights
+
         weights = _compute_position_weights(5)
         assert len(weights) == 5
         assert weights[0] == (1.5, "intro")
@@ -370,6 +375,7 @@ class TestProfiles:
 
     def test_list_profiles(self):
         from distill.profiles import list_profiles
+
         profiles = list_profiles()
         assert "default" in profiles
         assert "technical" in profiles
@@ -439,9 +445,9 @@ class TestHighlights:
 
         text_len = len(EXPERT_CONTENT)
         for h in result.highlights:
-            assert 0 <= h.position < text_len, (
-                f"Position {h.position} out of bounds for text length {text_len}"
-            )
+            assert (
+                0 <= h.position < text_len
+            ), f"Position {h.position} out of bounds for text length {text_len}"
 
 
 class TestConvenienceFunctions:
@@ -497,7 +503,9 @@ class TestToDict:
 
     def test_score_result_to_dict(self):
         result = ScoreResult(
-            name="substance", score=0.756, explanation="Good content",
+            name="substance",
+            score=0.756,
+            explanation="Good content",
             details={"filler_count": 2},
         )
         d = result.to_dict()
@@ -530,9 +538,7 @@ class TestToDict:
         report = distill.score(EXPERT_CONTENT)
         d = report.to_dict(include_highlights=True)
         # At least one scorer should have highlights on expert content
-        has_highlights = any(
-            "highlights" in dim for dim in d["dimensions"].values()
-        )
+        has_highlights = any("highlights" in dim for dim in d["dimensions"].values())
         assert has_highlights
 
     def test_quality_report_to_dict_with_paragraphs(self):
@@ -560,6 +566,7 @@ class TestToDict:
 class TestExtractorExports:
     def test_extract_from_html_exported(self):
         from distill import extract_from_html
+
         result = extract_from_html("<html><body><p>Hello world</p></body></html>")
         assert "text" in result
         assert "Hello world" in result["text"]
@@ -567,4 +574,5 @@ class TestExtractorExports:
     def test_extract_from_url_exported(self):
         # Just verify the function is importable from top level
         from distill import extract_from_url
+
         assert callable(extract_from_url)

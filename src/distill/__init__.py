@@ -10,7 +10,6 @@ __version__ = "0.1.0"
 
 # Import scorers to trigger registration
 import distill.scorers  # noqa: F401
-
 from distill.cache import ScoreCache
 from distill.content_type import ContentType, detect_content_type
 from distill.extractors import extract_from_html, extract_from_url
@@ -22,7 +21,7 @@ from distill.pipeline import (
     QualityReport,
 )
 from distill.profiles import ScorerProfile, get_profile, list_profiles, register_profile
-from distill.scorer import MatchHighlight, ScoreResult, Scorer, register, get_scorer, list_scorers
+from distill.scorer import MatchHighlight, Scorer, ScoreResult, get_scorer, list_scorers, register
 
 
 def score(
@@ -49,8 +48,9 @@ def score(
     Returns:
         QualityReport with overall score and per-dimension results.
     """
-    pipeline = Pipeline(scorers=scorers, weights=weights, profile=profile,
-                        auto_profile=auto_profile)
+    pipeline = Pipeline(
+        scorers=scorers, weights=weights, profile=profile, auto_profile=auto_profile
+    )
     return pipeline.score(text, metadata=metadata, include_paragraphs=include_paragraphs)
 
 
@@ -78,8 +78,9 @@ def score_url(
     """
     extracted = extract_from_url(url)
     metadata = {"url": extracted.get("url", url), "title": extracted.get("title", "")}
-    pipeline = Pipeline(scorers=scorers, weights=weights, profile=profile,
-                        auto_profile=auto_profile)
+    pipeline = Pipeline(
+        scorers=scorers, weights=weights, profile=profile, auto_profile=auto_profile
+    )
     return pipeline.score(
         extracted["text"], metadata=metadata, include_paragraphs=include_paragraphs
     )
@@ -111,8 +112,9 @@ def score_file(
     """
     with open(path) as f:
         text = f.read()
-    pipeline = Pipeline(scorers=scorers, weights=weights, profile=profile,
-                        auto_profile=auto_profile)
+    pipeline = Pipeline(
+        scorers=scorers, weights=weights, profile=profile, auto_profile=auto_profile
+    )
     return pipeline.score(text, metadata=metadata, include_paragraphs=include_paragraphs)
 
 
@@ -146,9 +148,12 @@ def compare(
     """
     pipeline = Pipeline(scorers=scorers, weights=weights, profile=profile)
     return pipeline.compare(
-        text_a, text_b,
-        label_a=label_a, label_b=label_b,
-        metadata_a=metadata_a, metadata_b=metadata_b,
+        text_a,
+        text_b,
+        label_a=label_a,
+        label_b=label_b,
+        metadata_a=metadata_a,
+        metadata_b=metadata_b,
     )
 
 

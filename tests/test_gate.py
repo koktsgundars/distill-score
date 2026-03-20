@@ -5,9 +5,7 @@ from __future__ import annotations
 import json
 
 from click.testing import CliRunner
-
 from distill.cli import main
-
 
 EXPERT_CONTENT = """
 We migrated our payment service from a monolith to a separate deployment in Q3 2024.
@@ -89,9 +87,9 @@ class TestGateMultipleSources:
         bad.write_text(AI_SLOP)
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "gate", str(good), str(bad), "--min-score", "0.5", "--no-cache"
-        ])
+        result = runner.invoke(
+            main, ["gate", str(good), str(bad), "--min-score", "0.5", "--no-cache"]
+        )
         # Expert (~0.57) should pass 0.5, AI slop (~0.36) should fail → overall fail
         assert result.exit_code == 1
         assert "PASS" in result.output
@@ -104,9 +102,7 @@ class TestGateMultipleSources:
         f2.write_text(EXPERT_CONTENT)
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "gate", str(f1), str(f2), "--min-grade", "D", "--no-cache"
-        ])
+        result = runner.invoke(main, ["gate", str(f1), str(f2), "--min-grade", "D", "--no-cache"])
         assert result.exit_code == 0
 
     def test_from_file(self, tmp_path):
@@ -116,9 +112,7 @@ class TestGateMultipleSources:
         list_file.write_text(str(content_file) + "\n")
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "gate", "--from-file", str(list_file), "--no-cache"
-        ])
+        result = runner.invoke(main, ["gate", "--from-file", str(list_file), "--no-cache"])
         assert result.exit_code == 0
 
 
@@ -142,9 +136,7 @@ class TestGateJson:
         f.write_text(AI_SLOP)
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "gate", str(f), "--json", "--min-grade", "A", "--no-cache"
-        ])
+        result = runner.invoke(main, ["gate", str(f), "--json", "--min-grade", "A", "--no-cache"])
         assert result.exit_code == 1
         data = json.loads(result.output)
         assert data["all_passed"] is False
@@ -164,9 +156,7 @@ class TestGateJson:
         f.write_text(EXPERT_CONTENT)
 
         runner = CliRunner()
-        result = runner.invoke(main, [
-            "gate", str(f), "--json", "--min-score", "0.3", "--no-cache"
-        ])
+        result = runner.invoke(main, ["gate", str(f), "--json", "--min-score", "0.3", "--no-cache"])
         data = json.loads(result.output)
         assert data["threshold"] == {"min_score": 0.3}
 
@@ -179,9 +169,9 @@ class TestGateMinScoreOverridesGrade:
 
         runner = CliRunner()
         # Even with min-grade A, min-score 0.1 should pass
-        result = runner.invoke(main, [
-            "gate", str(f), "--min-grade", "A", "--min-score", "0.1", "--no-cache"
-        ])
+        result = runner.invoke(
+            main, ["gate", str(f), "--min-grade", "A", "--min-score", "0.1", "--no-cache"]
+        )
         assert result.exit_code == 0
 
 
