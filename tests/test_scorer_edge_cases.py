@@ -57,8 +57,15 @@ def test_result_has_name(scorer, edge_text):
 
 
 def test_confidence_interval_valid(scorer, edge_text):
-    """If CI bounds are present, they must be ordered and in range."""
+    """CI bounds must be both None or both set, ordered, and in range."""
     result = scorer.score(edge_text)
+    has_lower = result.ci_lower is not None
+    has_upper = result.ci_upper is not None
+    assert has_lower == has_upper, (
+        f"{scorer.name} CI bounds asymmetric: "
+        f"ci_lower={'set' if has_lower else 'None'}, "
+        f"ci_upper={'set' if has_upper else 'None'}"
+    )
     if result.ci_lower is not None and result.ci_upper is not None:
         assert 0.0 <= result.ci_lower <= result.ci_upper <= 1.0, (
             f"{scorer.name} CI [{result.ci_lower}, {result.ci_upper}] invalid"

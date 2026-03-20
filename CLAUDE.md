@@ -54,4 +54,4 @@ make install     # Install in dev mode
 
 - **Ruff version alignment**: The pre-commit hook pin in `.pre-commit-config.yaml` must match the ruff version CI installs. Import sorting rules change between ruff versions, causing CI failures even when pre-commit passes locally. When bumping ruff in `pyproject.toml`, update `.pre-commit-config.yaml` rev to match.
 - **Optional dependencies**: `sentence-transformers`, `whois`, and `flask` are optional. Their imports use `# type: ignore[import-not-found]` inline suppression. For try/except imports that also need ruff's I001 suppressed, use `# noqa: F401, I001  # type: ignore[import-not-found]`.
-- **Coverage threshold**: Set to 70% in `[tool.coverage.report]`. Tests must pass this floor or CI fails.
+- **Coverage threshold**: Set to 73% in `[tool.coverage.report]`. Tests must pass this floor or CI fails.

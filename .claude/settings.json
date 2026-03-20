@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/gundarskokts/repos/distill-score && pytest --cov=distill -q 2>&1 | tail -5",
+            "command": "pytest --cov=distill -q 2>&1 | tail -5",
             "timeout": 120,
             "statusMessage": "Running tests..."
           }

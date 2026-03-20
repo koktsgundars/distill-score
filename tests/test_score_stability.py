@@ -49,6 +49,14 @@ def test_overall_score_stable(pipeline, text_name):
 def test_dimension_scores_stable(pipeline, text_name):
     report = pipeline.score(TEXTS[text_name])
     score_map = {r.name: r.score for r in report.scores}
+    expected_dims = {k for k in EXPECTED[text_name] if k != "overall"}
+
+    # Detect new or removed dimensions
+    assert score_map.keys() == expected_dims, (
+        f"{text_name}: dimension mismatch — "
+        f"extra in report: {score_map.keys() - expected_dims}, "
+        f"missing from report: {expected_dims - score_map.keys()}"
+    )
 
     for dim, exp_score in EXPECTED[text_name].items():
         if dim == "overall":

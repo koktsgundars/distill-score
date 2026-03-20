@@ -7,8 +7,8 @@ the CLI layer and the scoring pipeline.
 from __future__ import annotations
 
 import json
-import tempfile
 
+import pytest
 from click.testing import CliRunner
 
 from distill.cli import main
@@ -22,41 +22,51 @@ traced to changed autovacuum defaults.
 """
 
 
-def _write_temp(text: str, suffix: str = ".txt") -> str:
-    """Write text to a temp file and return the path."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as f:
-        f.write(text)
-        return f.name
+@pytest.fixture()
+def sample_file(tmp_path):
+    p = tmp_path / "sample.txt"
+    p.write_text(SAMPLE_TEXT)
+    return str(p)
+
+
+@pytest.fixture()
+def short_file(tmp_path):
+    p = tmp_path / "short.txt"
+    p.write_text("This is a short, low quality text.")
+    return str(p)
+
+
+@pytest.fixture()
+def bad_file(tmp_path):
+    p = tmp_path / "bad.txt"
+    p.write_text("Bad.")
+    return str(p)
 
 
 class TestScoreCommand:
-    def test_score_file(self):
-        path = _write_temp(SAMPLE_TEXT)
+    def test_score_file(self, sample_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["score", path])
+        result = runner.invoke(main, ["score", sample_file])
         assert result.exit_code == 0
         assert "Overall" in result.output or "overall" in result.output
 
-    def test_score_json_output(self):
-        path = _write_temp(SAMPLE_TEXT)
+    def test_score_json_output(self, sample_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["score", path, "--json"])
+        result = runner.invoke(main, ["score", sample_file, "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "overall_score" in data
         assert "grade" in data
         assert "dimensions" in data
 
-    def test_score_with_profile(self):
-        path = _write_temp(SAMPLE_TEXT)
+    def test_score_with_profile(self, sample_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["score", path, "--profile", "technical"])
+        result = runner.invoke(main, ["score", sample_file, "--profile", "technical"])
         assert result.exit_code == 0
 
-    def test_score_with_paragraphs(self):
-        path = _write_temp(SAMPLE_TEXT)
+    def test_score_with_paragraphs(self, sample_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["score", path, "--paragraphs"])
+        result = runner.invoke(main, ["score", sample_file, "--paragraphs"])
         assert result.exit_code == 0
 
     def test_score_missing_file(self):
@@ -66,41 +76,34 @@ class TestScoreCommand:
 
 
 class TestCompareCommand:
-    def test_compare_two_files(self):
-        path_a = _write_temp(SAMPLE_TEXT)
-        path_b = _write_temp("This is a short, low quality text.")
+    def test_compare_two_files(self, sample_file, short_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["compare", path_a, path_b])
+        result = runner.invoke(main, ["compare", sample_file, short_file])
         assert result.exit_code == 0
         assert "Winner" in result.output or "winner" in result.output
 
-    def test_compare_json_output(self):
-        path_a = _write_temp(SAMPLE_TEXT)
-        path_b = _write_temp("This is a short, low quality text.")
+    def test_compare_json_output(self, sample_file, short_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["compare", path_a, path_b, "--json"])
+        result = runner.invoke(main, ["compare", sample_file, short_file, "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "winner" in data
 
 
 class TestGateCommand:
-    def test_gate_pass(self):
-        path = _write_temp(SAMPLE_TEXT)
+    def test_gate_pass(self, sample_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["gate", path, "--min-score", "0.1"])
+        result = runner.invoke(main, ["gate", sample_file, "--min-score", "0.1"])
         assert result.exit_code == 0
 
-    def test_gate_fail(self):
-        path = _write_temp("Bad.")
+    def test_gate_fail(self, bad_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["gate", path, "--min-score", "0.99"])
+        result = runner.invoke(main, ["gate", bad_file, "--min-score", "0.99"])
         assert result.exit_code != 0
 
-    def test_gate_json_output(self):
-        path = _write_temp(SAMPLE_TEXT)
+    def test_gate_json_output(self, sample_file):
         runner = CliRunner()
-        result = runner.invoke(main, ["gate", path, "--min-score", "0.1", "--json"])
+        result = runner.invoke(main, ["gate", sample_file, "--min-score", "0.1", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "all_passed" in data
