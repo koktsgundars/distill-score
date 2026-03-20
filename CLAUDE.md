@@ -50,6 +50,17 @@ make install     # Install in dev mode
 - Test files mirror source files: `test_<module>.py`
 - Test functions: `test_<behavior_being_tested>`
 
+## Workflow for Changes
+
+1. **Make changes**
+2. **Run `make fix`** — auto-fix lint and formatting before testing
+3. **Run `make check`** — must pass before committing (lint + format + typecheck + test)
+4. **Commit** — pre-commit hooks will run ruff again; if they modify files, re-add and commit
+5. **Code review** — run at least one review pass on every feature. For larger changes (new subsystems, multi-file refactors, CI/config changes), do two passes: first to find issues, second to verify fixes are clean
+6. **Push and verify CI**
+
+Why two review passes: the first review catches real issues (stale docs, leaked resources, hardcoded paths, missing edge cases). Fixing those issues can introduce new problems. The second pass confirms the fixes are clean and complete.
+
 ## Gotchas
 
 - **Ruff version alignment**: The pre-commit hook pin in `.pre-commit-config.yaml` must match the ruff version CI installs. Import sorting rules change between ruff versions, causing CI failures even when pre-commit passes locally. When bumping ruff in `pyproject.toml`, update `.pre-commit-config.yaml` rev to match.
