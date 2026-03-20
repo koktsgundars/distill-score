@@ -41,9 +41,9 @@ class TestTextOnlyMode:
         cited = self.scorer.score(WELL_CITED_CONTENT)
         uncited = self.scorer.score(UNCITED_ANONYMOUS)
 
-        assert (
-            cited.score > uncited.score
-        ), f"Well-cited ({cited.score:.3f}) should beat uncited ({uncited.score:.3f})"
+        assert cited.score > uncited.score, (
+            f"Well-cited ({cited.score:.3f}) should beat uncited ({uncited.score:.3f})"
+        )
 
     def test_text_only_mode_reported(self):
         result = self.scorer.score(WELL_CITED_CONTENT)
@@ -77,9 +77,9 @@ class TestWithURLMetadata:
         result_nature = self.scorer.score(WELL_CITED_CONTENT, metadata=meta_nature)
         result_unknown = self.scorer.score(WELL_CITED_CONTENT, metadata=meta_unknown)
 
-        assert (
-            result_nature.score > result_unknown.score
-        ), f"Nature ({result_nature.score:.3f}) should beat unknown ({result_unknown.score:.3f})"
+        assert result_nature.score > result_unknown.score, (
+            f"Nature ({result_nature.score:.3f}) should beat unknown ({result_unknown.score:.3f})"
+        )
 
     def test_low_authority_domain_penalizes(self):
         meta_high = {"url": "https://reuters.com/article/test"}
@@ -185,9 +185,9 @@ class TestPipelineIntegration:
 
         for profile_name in ("default", "technical", "news", "opinion"):
             profile = get_profile(profile_name)
-            assert (
-                "authority" in profile.weights
-            ), f"Profile {profile_name!r} missing authority weight"
+            assert "authority" in profile.weights, (
+                f"Profile {profile_name!r} missing authority weight"
+            )
 
     def test_news_profile_high_authority_weight(self):
         from distill.profiles import get_profile

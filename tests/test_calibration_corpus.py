@@ -6,6 +6,7 @@ import pathlib
 
 import pytest
 import yaml
+
 from distill.pipeline import Pipeline
 
 CORPUS_PATH = pathlib.Path(__file__).parent / "corpus" / "calibration_corpus.yaml"
@@ -57,9 +58,9 @@ class TestCalibrationCorpus:
         grade_idx = _grade_index(report.grade)
         lo = min(_grade_index(min_grade), _grade_index(max_grade))
         hi = max(_grade_index(min_grade), _grade_index(max_grade))
-        assert (
-            lo <= grade_idx <= hi
-        ), f"[{corpus_entry['id']}] grade {report.grade} not in [{min_grade}, {max_grade}]"
+        assert lo <= grade_idx <= hi, (
+            f"[{corpus_entry['id']}] grade {report.grade} not in [{min_grade}, {max_grade}]"
+        )
 
     def test_dimension_expectations(self, corpus_entry, pipeline):
         expectations = corpus_entry.get("dimension_expectations")

@@ -1,6 +1,7 @@
 """Tests for the originality scorer."""
 
 import pytest
+
 from distill import Pipeline
 from distill.profiles import list_profiles
 from distill.scorer import get_scorer, list_scorers
@@ -136,9 +137,9 @@ class TestOriginalityHighlights:
         result = self.scorer.score(EXPERT_CONTENT)
         text_len = len(EXPERT_CONTENT)
         for h in result.highlights:
-            assert (
-                0 <= h.position < text_len
-            ), f"Position {h.position} out of bounds for text length {text_len}"
+            assert 0 <= h.position < text_len, (
+                f"Position {h.position} out of bounds for text length {text_len}"
+            )
 
 
 class TestOriginalityClaimDensity:

@@ -106,9 +106,9 @@ class TestComplexityScorer:
         result = self.scorer.score(WELL_CALIBRATED)
         text_len = len(WELL_CALIBRATED)
         for h in result.highlights:
-            assert (
-                0 <= h.position < text_len
-            ), f"Position {h.position} out of bounds for text length {text_len}"
+            assert 0 <= h.position < text_len, (
+                f"Position {h.position} out of bounds for text length {text_len}"
+            )
 
     def test_short_text_neutral(self):
         result = self.scorer.score(SHORT_TEXT)

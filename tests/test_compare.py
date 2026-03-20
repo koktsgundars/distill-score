@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 
-import distill
 from click.testing import CliRunner
+
+import distill
 from distill.cli import main
 from distill.pipeline import ComparisonResult, DimensionDelta, Pipeline
 

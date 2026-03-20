@@ -3,6 +3,7 @@
 import json
 
 from click.testing import CliRunner
+
 from distill.content_type import ContentType, detect_content_type
 from distill.pipeline import Pipeline
 

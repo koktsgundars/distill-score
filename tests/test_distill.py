@@ -3,8 +3,9 @@
 import os
 import tempfile
 
-import distill
 import pytest
+
+import distill
 from distill import Pipeline
 from distill.scorer import MatchHighlight, ScoreResult, get_scorer, list_scorers
 
@@ -158,9 +159,9 @@ class TestCalibration:
             f"Expert ({expert.overall_score:.3f}) should beat "
             f"moderate ({moderate.overall_score:.3f})"
         )
-        assert (
-            moderate.overall_score > slop.overall_score
-        ), f"Moderate ({moderate.overall_score:.3f}) should beat slop ({slop.overall_score:.3f})"
+        assert moderate.overall_score > slop.overall_score, (
+            f"Moderate ({moderate.overall_score:.3f}) should beat slop ({slop.overall_score:.3f})"
+        )
 
     def test_expert_slop_separation(self):
         """Expert and slop should be separated by at least 0.25 overall."""
@@ -445,9 +446,9 @@ class TestHighlights:
 
         text_len = len(EXPERT_CONTENT)
         for h in result.highlights:
-            assert (
-                0 <= h.position < text_len
-            ), f"Position {h.position} out of bounds for text length {text_len}"
+            assert 0 <= h.position < text_len, (
+                f"Position {h.position} out of bounds for text length {text_len}"
+            )
 
 
 class TestConvenienceFunctions:

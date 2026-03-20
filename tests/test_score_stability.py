@@ -7,6 +7,7 @@ tolerances (+/- 0.05) against known reference texts to detect regressions.
 from __future__ import annotations
 
 import pytest
+
 from distill.pipeline import Pipeline
 
 TOLERANCE = 0.05
@@ -92,9 +93,9 @@ def test_dimension_scores_stable(pipeline, text_name, text):
         if dim == "overall":
             continue
         actual = score_map[dim]
-        assert (
-            abs(actual - exp_score) <= TOLERANCE
-        ), f"{text_name}/{dim}: expected {exp_score:.3f} +/- {TOLERANCE}, got {actual:.3f}"
+        assert abs(actual - exp_score) <= TOLERANCE, (
+            f"{text_name}/{dim}: expected {exp_score:.3f} +/- {TOLERANCE}, got {actual:.3f}"
+        )
 
 
 def test_expert_beats_fluff(pipeline):
