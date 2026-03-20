@@ -53,3 +53,9 @@ pyright src/
 
 - Test files mirror source files: `test_<module>.py`
 - Test functions: `test_<behavior_being_tested>`
+
+## Gotchas
+
+- **Ruff version alignment**: The pre-commit hook pin in `.pre-commit-config.yaml` must match the ruff version CI installs. Import sorting rules change between ruff versions, causing CI failures even when pre-commit passes locally. When bumping ruff in `pyproject.toml`, update `.pre-commit-config.yaml` rev to match.
+- **Optional dependencies**: `sentence-transformers`, `whois`, and `flask` are optional. Pyright is configured with `reportMissingImports: "warning"` and `server.py` is excluded from type checking to handle this.
+- **Coverage threshold**: Set to 70% in `[tool.coverage.report]`. Tests must pass this floor or CI fails.
