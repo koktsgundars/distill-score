@@ -72,6 +72,9 @@ quote-style = "double"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "evaluation: end-to-end rank-correlation test against the URL corpus. Requires snapshots populated via `distill evaluate --snapshot`; skipped otherwise. Run with `pytest -m evaluation`.",
+]
 
 [tool.coverage.report]
 fail_under = 73

@@ -16,3 +16,9 @@ htmlcov/
 *.so
 .DS_Store
 .claude/settings.local.json
+
+# Fetched URL text for evaluation corpus — populated locally via
+# `distill evaluate --snapshot`; excluded from the repo to avoid
+# redistributing third-party prose.
+tests/corpus/snapshots/
+
