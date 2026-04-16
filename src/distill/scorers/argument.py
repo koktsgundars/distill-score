@@ -204,7 +204,7 @@ class ArgumentScorer(Scorer):
 
     name: ClassVar[str] = "argument"
     description: ClassVar[str] = "Argument structure: claims, evidence, and counterarguments"
-    weight: ClassVar[float] = 0.75
+    weight: ClassVar[float] = 1.0
 
     def score(self, text: str, metadata: dict | None = None) -> ScoreResult:
         word_count = len(text.split())

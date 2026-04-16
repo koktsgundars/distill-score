@@ -441,7 +441,7 @@ class SourceAuthorityScorer(Scorer):
 
     name: ClassVar[str] = "authority"
     description: ClassVar[str] = "Source authority: domain reputation, author signals, citations"
-    weight: ClassVar[float] = 0.5
+    weight: ClassVar[float] = 1.0
 
     def __init__(self) -> None:
         self._age_cache: dict[str, float | None] = {}

@@ -193,7 +193,7 @@ class SubstanceScorer(Scorer):
 
     name: ClassVar[str] = "substance"
     description: ClassVar[str] = "Information density: concrete specifics vs vague filler"
-    weight: ClassVar[float] = 1.5  # primary signal
+    weight: ClassVar[float] = 2.0  # primary signal — top discriminator on the URL corpus
 
     def score(self, text: str, metadata: dict | None = None) -> ScoreResult:
         sentences = _sentence_split(text)

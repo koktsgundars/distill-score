@@ -196,7 +196,7 @@ class ComplexityScorer(Scorer):
     description: ClassVar[str] = (
         "Reading time + complexity profile: jargon density, concept pacing, cognitive load"
     )
-    weight: ClassVar[float] = 0.5
+    weight: ClassVar[float] = 0.3
 
     def score(self, text: str, metadata: dict | None = None) -> ScoreResult:
         words = text.split()

@@ -141,7 +141,7 @@ class OriginalityScorer(Scorer):
 
     name: ClassVar[str] = "originality"
     description: ClassVar[str] = "Originality: novel claims and diverse ideas vs common knowledge"
-    weight: ClassVar[float] = 0.75
+    weight: ClassVar[float] = 0.3
 
     def __init__(self) -> None:
         self._model = None

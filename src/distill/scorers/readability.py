@@ -84,7 +84,7 @@ class ReadabilityScorer(Scorer):
 
     name: ClassVar[str] = "readability"
     description: ClassVar[str] = "Structural quality: reading level, variety, and organization"
-    weight: ClassVar[float] = 0.75
+    weight: ClassVar[float] = 0.3
 
     # Ideal Flesch-Kincaid grade range for substantive web content
     IDEAL_GRADE_MIN = 8.0

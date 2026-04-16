@@ -72,15 +72,15 @@ class TestRank:
 class TestPredictTier:
     def test_high(self):
         assert predict_tier(0.75) == "high"
-        assert predict_tier(0.55) == "high"
+        assert predict_tier(0.50) == "high"
 
     def test_medium(self):
-        assert predict_tier(0.45) == "medium"
-        assert predict_tier(0.35) == "medium"
+        assert predict_tier(0.49) == "medium"
+        assert predict_tier(0.42) == "medium"
 
     def test_low(self):
         assert predict_tier(0.20) == "low"
-        assert predict_tier(0.34) == "low"
+        assert predict_tier(0.41) == "low"
 
 
 # --- Snapshot I/O tests ---
@@ -202,9 +202,9 @@ class TestComputeMetrics:
             self._make_scored("high", 0.85),
             self._make_scored("high", 0.80),
             self._make_scored("high", 0.75),
-            self._make_scored("medium", 0.50),
+            self._make_scored("medium", 0.48),
             self._make_scored("medium", 0.45),
-            self._make_scored("medium", 0.40),
+            self._make_scored("medium", 0.43),
             self._make_scored("low", 0.20),
             self._make_scored("low", 0.15),
             self._make_scored("low", 0.10),
