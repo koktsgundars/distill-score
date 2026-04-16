@@ -19,7 +19,7 @@ from distill.scorer import Finding, MatchHighlight, Scorer, ScoreResult, registe
 
 # Filler phrases that add no information
 FILLER_PHRASES = [
-    r"\bin today'?s (?:world|age|society|landscape|environment)\b",
+    r"\bin today'?s (?:[\w-]+\s+){0,4}(?:world|age|society|landscape|environment|economy|market)\b",
     r"\bit'?s (?:important|worth noting|no secret|safe to say|widely known)\b",
     r"\bas (?:we all know|everyone knows|you may know|mentioned (?:above|earlier|before))\b",
     r"\bwithout further ado\b",
@@ -46,6 +46,18 @@ FILLER_PHRASES = [
     r"\bcutting[ -]edge\b",
     r"\bstate[ -]of[ -]the[ -]art\b",
     r"\bone[ -]stop[ -]shop\b",
+    r"\bever[- ]?evolving\b",
+    r"\bfast[- ]paced\b",
+    r"\bthe (?:bigger|full) picture\b",
+    r"\bfinding (?:the|a) right balance\b",
+    r"\b(?:take|taking)(?:\s+\w+){1,3}\s+to the next level\b",
+    r"\bunlock\s+(?:new\s+|the\s+|your\s+)?(?:levels?|potential|power|secrets?)\b",
+    r"\b(?:a|every) step (?:forward )?(?:in|is a step in) the right direction\b",
+    r"\bthe journey is (?:just as|more) important\b",
+    r"\bthe following (?:insights?|tips?|strategies|ideas|secrets?) (?:can|will|may|help)\b",
+    r"\b(?:step|stepping|take) (?:a step )?back and (?:consider|think|reflect)\b",
+    r"\b(?:whether|regardless of whether) you'?re a?\s?(?:seasoned|beginner|novice|expert|"
+    r"just getting started)\b",
 ]
 
 # Hedging phrases that weaken claims without adding specificity
@@ -216,8 +228,11 @@ class SubstanceScorer(Scorer):
         # Composite score — start low, earn your score
         score = 0.3  # baseline
 
-        # Reward specificity (wider range)
-        score += min(0.35, specific_rate * 0.15)
+        # Reward specificity with a gentler saturation so strong-but-finite
+        # drops in specific-marker count (e.g. numbers replaced with vague
+        # quantifiers) translate into score movement rather than both values
+        # landing on the cap.
+        score += min(0.35, specific_rate * 0.06)
 
         # Penalize filler
         score -= min(0.30, filler_rate * 0.10)

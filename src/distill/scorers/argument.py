@@ -26,7 +26,7 @@ CLAIM_PATTERNS = [
     r"\bthis shows that\b",
     r"\bthe problem is\b",
     r"\bthe solution is\b",
-    r"\bthe key insight\b",
+    r"\bthe key (?:insight|challenge|issue|finding|driver|advantage|tradeoff)\b",
     r"\b\w+ causes \w+",
     r"\b\w+ leads to \w+",
     r"\b\w+ results in \w+",
@@ -36,7 +36,13 @@ CLAIM_PATTERNS = [
     r"\bwe conclude\b",
     r"\bthe evidence suggests\b",
     r"\bour analysis shows\b",
-    r"\bthe main (?:finding|takeaway|point) is\b",
+    r"\bthe main (?:finding|takeaway|point|driver) (?:is|was)\b",
+    r"\b(?:found|showed|demonstrated|concluded|reported) that\b",
+    r"\b(?:our|the)(?:\s+\w+){0,2}\s+(?:tests?|testing|analysis|data|results?|"
+    r"measurements?|experiments?|study|research) "
+    r"(?:revealed|shows?|showed|found|indicated?|demonstrated|suggests?)\b",
+    r"\b(?:latency|throughput|performance|accuracy|memory|cpu) "
+    r"(?:improved|increased|decreased|dropped|grew|fell|rose|plateaus?)\b",
 ]
 
 # Evidence: supports claims (positive signal)
@@ -64,6 +70,18 @@ EVIDENCE_PATTERNS = [
     r"\bthe numbers suggest\b",
     r"\bin practice\b",
     r"\bspecifically\b",
+]
+
+# Quantitative evidence markers. Used only for sentence-level proximity to
+# claims (structural_ratio) — NOT added to evidence density or claim/evidence
+# balance, which would over-reward data-dense prose and distort calibration.
+QUANTITATIVE_EVIDENCE_PATTERNS = [
+    r"\b\d+(?:[.,]\d+)?\s*%",
+    r"\b\d+(?:\.\d+)?\s*(?:ms|ns|us|μs|seconds?|minutes?|hours?)\b",
+    r"\b\d+(?:\.\d+)?\s*(?:GB|MB|KB|bytes?)\b",
+    r"\bp\s*=\s*0?\.\d+\b",
+    r"\bp\d{2,}\b",
+    r"\b\d+(?:[.,]\d+)?\s*(?:req/s|requests?/(?:sec|second))\b",
 ]
 
 # Counterarguments: shows intellectual depth (positive signal)
@@ -113,6 +131,7 @@ def _compile(patterns: list[str]) -> list[re.Pattern]:
 
 _claim_re = _compile(CLAIM_PATTERNS)
 _evidence_re = _compile(EVIDENCE_PATTERNS)
+_quant_evidence_re = _compile(QUANTITATIVE_EVIDENCE_PATTERNS)
 _counter_re = _compile(COUNTERARGUMENT_PATTERNS)
 _unsupported_re = _compile(UNSUPPORTED_PATTERNS)
 
@@ -148,6 +167,35 @@ def _find_bare_prescriptives(text: str) -> list[tuple[int, int, str]]:
 def _count_bare_prescriptives(text: str) -> int:
     """Count 'you should/must/need to' without reasoning nearby (within 80 chars)."""
     return len(_find_bare_prescriptives(text))
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _structurally_supported_claim_ratio(text: str) -> tuple[int, int]:
+    """Count claims whose evidence appears in the same or next sentence.
+
+    Returns (total_claims_in_sentences, supported_count). A claim is
+    'structurally supported' when an evidence marker shows up in the same
+    sentence or the immediately following one — the local proximity that
+    shuffled/scrambled arguments lose.
+    """
+    sentences = _SENTENCE_SPLIT_RE.split(text)
+    has_claim = [any(p.search(s) for p in _claim_re) for s in sentences]
+    has_evidence = [
+        any(p.search(s) for p in _evidence_re) or any(p.search(s) for p in _quant_evidence_re)
+        for s in sentences
+    ]
+
+    total = 0
+    supported = 0
+    for i, claim_here in enumerate(has_claim):
+        if not claim_here:
+            continue
+        total += 1
+        if has_evidence[i] or (i + 1 < len(has_evidence) and has_evidence[i + 1]):
+            supported += 1
+    return total, supported
 
 
 @register
@@ -210,6 +258,14 @@ class ArgumentScorer(Scorer):
         if evidence_rate > 0.5 and counter_rate > 0.3:
             score += 0.08
 
+        # Structural flow: claims followed by evidence in the same or next
+        # sentence. Rewards arguments that read as claim→support, penalizes
+        # shuffled/scrambled text where claims and evidence are dispersed.
+        claim_sentences, supported_sentences = _structurally_supported_claim_ratio(text)
+        if claim_sentences >= 1:
+            structural_ratio = supported_sentences / claim_sentences
+            score += (structural_ratio - 0.5) * 0.14  # -0.07 to +0.07
+
         # Depth bonus for long-form content (>1000 words)
         if word_count > 1000:
             if evidence_count >= 8 and counter_count >= 3:
@@ -254,6 +310,8 @@ class ArgumentScorer(Scorer):
                 "evidence_rate_per_100w": round(evidence_rate, 2),
                 "counter_rate_per_100w": round(counter_rate, 2),
                 "unsupported_rate_per_100w": round(unsupported_rate, 2),
+                "claim_sentences": claim_sentences,
+                "structurally_supported_claims": supported_sentences,
                 "word_count": word_count,
             },
         )

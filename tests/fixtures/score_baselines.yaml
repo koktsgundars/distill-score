@@ -23,12 +23,12 @@ texts:
       extension stack against 16 before committing the core upgrade is smooth,
       but extension compatibility is where the surprises live.
     expected:
-      overall: 0.619
+      overall: 0.621
       substance: 0.701
       epistemic: 0.653
-      readability: 0.850
+      readability: 0.800
       originality: 0.573
-      argument: 0.534
+      argument: 0.604
       complexity: 0.522
       authority: 0.250
 
@@ -42,11 +42,11 @@ texts:
       results that move the needle and create a win-win situation for all
       parties involved.
     expected:
-      overall: 0.314
+      overall: 0.301
       substance: 0.112
       epistemic: 0.350
       readability: 0.700
-      originality: 0.330
+      originality: 0.232
       argument: 0.300
       complexity: 0.330
       authority: 0.250

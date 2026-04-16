@@ -68,6 +68,14 @@ COMMON_KNOWLEDGE = [
     r"\beveryone (?:knows|agrees|understands)\b",
     r"\bit'?s (?:clear|obvious|evident) that\b",
     r"\bwidely (?:accepted|recognized|acknowledged)\b",
+    # Generic AI-slop framing — vague, grand, non-substantive openings
+    r"\bin today'?s (?:[\w-]+\s+){0,4}(?:world|age|society|landscape|environment|economy|market)\b",
+    r"\bthe (?:bigger|full) picture\b",
+    r"\bfinding (?:the|a) right balance\b",
+    r"\b(?:take|taking)(?:\s+\w+){1,3}\s+to the next level\b",
+    r"\bunlock\s+(?:new\s+|the\s+|your\s+)?(?:levels?|potential|power|secrets?)\b",
+    r"\bever[- ]?evolving\b",
+    r"\bthe journey is (?:just as|more) important\b",
 ]
 
 # Attribution markers → attribution

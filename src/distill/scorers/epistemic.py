@@ -24,12 +24,12 @@ SPECIFIC_QUALIFICATIONS = [
     r"\bthis (?:breaks down|doesn't apply|fails|won't work) (?:when|if|for)\b",
     r"\bthe (?:tradeoff|downside|limitation|caveat|catch|risk) (?:is|here)\b",
     r"\bassuming (?:you|that|your)\b",
-    r"\bif (?:your|the) .{3,30} (?:is|are|exceeds?|has)\b",
+    r"\bif (?:your|the) [^.!?\n]{3,30} (?:is|are|exceeds?|has)\b",
     r"\bdepends on (?:your|the|whether)\b",
     r"\bin (?:my|our) experience\b",
     r"\bwe found (?:that)?\b",
     r"\bcontrary to (?:popular belief|what|common)\b",
-    r"\bthis (?:may seem|sounds) .{3,20} but\b",
+    r"\bthis (?:may seem|sounds) [^.!?\n]{3,20} but\b",
     r"\bthe (?:data|evidence|research|numbers) (?:shows?|suggests?|indicates?)\b",
     r"\baccording to\b",
     r"\b(?:one|a) (?:common )?(?:misconception|mistake|pitfall|trap|error)\b",
@@ -47,7 +47,7 @@ SPECIFIC_QUALIFICATIONS = [
     r"\bon balance\b",
     r"\b(?:pro|con)s? (?:and|vs|:)\b",
     r"\b(?:advantage|disadvantage|benefit|drawback)s? (?:of|include|are)\b",
-    r"\bif .{3,40} (?:then|you should|consider)\b",
+    r"\bif [^.!?\n]{3,40} (?:then|you should|consider)\b",
     r"\bunless (?:you|your|the)\b",
     r"\b(?:we|I) (?:learned|realized|discovered) (?:that)?\b",
     r"\bin (?:practice|reality|hindsight)\b",
@@ -60,6 +60,24 @@ SPECIFIC_QUALIFICATIONS = [
     r"\b(?:the reality|in reality|in truth) is\b",
     r"\bkeep in mind\b",
 ]
+
+# Weasel hedges — vague tentativeness that avoids commitment (BAD).
+# Distinct from SPECIFIC_QUALIFICATIONS: these don't name a condition or caveat,
+# they just soften the claim without adding information.
+WEASEL_HEDGES = [
+    r"\bit (?:could|can|might|may) be argued (?:that)?\b",
+    r"\barguably,?\b",
+    r"\bsome (?:might|may|could) (?:argue|suggest|say|think)\b",
+    r"\bone (?:might|could) (?:argue|say|suggest)\b",
+    r"\bin some (?:sense|way|respects?)\b",
+    r"\bmore or less\b",
+    r"\bsort of\b",
+    r"\bkind of\b",
+    r"\bperhaps,?\b",
+    r"\bpossibly,?\b",
+    r"\bthere are (?:those|some) who (?:say|argue|suggest|think)\b",
+]
+
 
 # Overconfident absolutism (BAD)
 OVERCONFIDENCE_MARKERS = [
@@ -102,7 +120,22 @@ def _compile(patterns: list[str]) -> list[re.Pattern]:
     return [re.compile(p, re.IGNORECASE) for p in patterns]
 
 
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_ws(text: str) -> str:
+    """Collapse all whitespace to single spaces.
+
+    Patterns in this scorer encode inter-word gaps as literal spaces, so a
+    phrase like "approximately\n12" wouldn't match "approximately \\d+" in
+    the original text but would after paragraph collapse. Normalizing for
+    counts makes scores invariant to paragraph breaks.
+    """
+    return _WHITESPACE_RE.sub(" ", text).strip()
+
+
 _qualification_re = _compile(SPECIFIC_QUALIFICATIONS)
+_weasel_re = _compile(WEASEL_HEDGES)
 _overconfidence_re = _compile(OVERCONFIDENCE_MARKERS)
 _reasoning_re = _compile(REASONING_MARKERS)
 
@@ -140,13 +173,16 @@ class EpistemicScorer(Scorer):
                 details={"word_count": word_count},
             )
 
-        qualification_count = _count(_qualification_re, text)
-        overconfidence_count = _count(_overconfidence_re, text)
-        reasoning_count = _count(_reasoning_re, text)
+        normalized = _normalize_ws(text)
+        qualification_count = _count(_qualification_re, normalized)
+        weasel_count = _count(_weasel_re, normalized)
+        overconfidence_count = _count(_overconfidence_re, normalized)
+        reasoning_count = _count(_reasoning_re, normalized)
 
         # Normalize per 100 words
         scale = 100 / word_count
         qual_rate = qualification_count * scale
+        weasel_rate = weasel_count * scale
         over_rate = overconfidence_count * scale
         reason_rate = reasoning_count * scale
 
@@ -158,6 +194,10 @@ class EpistemicScorer(Scorer):
 
         # Reward reasoning structure
         score += min(0.20, reason_rate * 0.05)
+
+        # Penalize weasel hedges — vague tentativeness that signals waffling
+        # rather than calibrated uncertainty
+        score -= min(0.20, weasel_rate * 0.08)
 
         # Penalize overconfidence only when it dominates
         # If qualifications+reasoning substantially outnumber overconfidence, no penalty
@@ -199,44 +239,51 @@ class EpistemicScorer(Scorer):
         # Collect highlights
         highlights = (
             _find_matches(_qualification_re, text, "qualification")
+            + _find_matches(_weasel_re, text, "weasel_hedge")
             + _find_matches(_overconfidence_re, text, "overconfidence")
             + _find_matches(_reasoning_re, text, "reasoning")
         )
         highlights.sort(key=lambda h: h.position)
 
-        signal_count = qualification_count + overconfidence_count + reasoning_count
+        signal_count = qualification_count + weasel_count + overconfidence_count + reasoning_count
         ci_lower, ci_upper = compute_confidence_interval(
             score,
             word_count,
             signal_count,
-            signal_types=3,
+            signal_types=4,
         )
 
         return ScoreResult(
             name=self.name,
             score=score,
             explanation=self._explain(
-                score, qualification_count, overconfidence_count, reasoning_count
+                score, qualification_count, weasel_count, overconfidence_count, reasoning_count
             ),
             highlights=highlights,
             ci_lower=ci_lower,
             ci_upper=ci_upper,
             details={
                 "qualification_count": qualification_count,
+                "weasel_hedge_count": weasel_count,
                 "overconfidence_count": overconfidence_count,
                 "reasoning_count": reasoning_count,
                 "qual_rate_per_100w": round(qual_rate, 2),
+                "weasel_rate_per_100w": round(weasel_rate, 2),
                 "overconfidence_rate_per_100w": round(over_rate, 2),
                 "reasoning_rate_per_100w": round(reason_rate, 2),
                 "word_count": word_count,
             },
         )
 
-    def _explain(self, score: float, quals: int, overconf: int, reasoning: int) -> str:
+    def _explain(
+        self, score: float, quals: int, weasels: int, overconf: int, reasoning: int
+    ) -> str:
         parts = []
 
         if quals > 2:
             parts.append(f"{quals} specific qualifications/caveats")
+        if weasels > 2:
+            parts.append(f"{weasels} weasel hedges")
         if overconf > 2:
             parts.append(f"{overconf} overconfident claims")
         if reasoning > 3:
@@ -257,7 +304,7 @@ class EpistemicScorer(Scorer):
         result: ScoreResult,
         metadata: dict | None = None,
     ) -> list[Finding]:
-        """Emit findings for overconfidence markers."""
+        """Emit findings for overconfidence markers and weasel hedges."""
         findings: list[Finding] = []
         for h in result.highlights:
             if h.category == "overconfidence":
@@ -267,6 +314,17 @@ class EpistemicScorer(Scorer):
                         category="overconfidence",
                         severity="warn",
                         reason="Absolute claim without qualification",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+            elif h.category == "weasel_hedge":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="weasel_hedge",
+                        severity="info",
+                        reason="Vague hedge that softens the claim without naming a condition",
                         span=(h.position, h.position + len(h.text)),
                         snippet=h.text,
                     )

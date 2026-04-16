@@ -119,27 +119,31 @@ class ReadabilityScorer(Scorer):
         # --- Score components ---
         score = 0.5
 
-        # Reading level: continuous curve instead of step function
+        # Reading level: continuous reward curve. Inside the ideal window we
+        # give a full bonus; just outside we taper that bonus toward zero over
+        # two grade levels; further out we apply a capped penalty. This avoids
+        # a 0.15 cliff when a small text edit nudges FK across the boundary.
         if self.IDEAL_GRADE_MIN <= fk_grade <= self.IDEAL_GRADE_MAX:
-            score += 0.15  # ideal range
-        elif fk_grade < self.IDEAL_GRADE_MIN:
-            # Smooth penalty: linearly increases as grade drops below ideal
-            distance = self.IDEAL_GRADE_MIN - fk_grade
-            penalty = min(0.15, distance * 0.025)
-            score -= penalty
+            score += 0.15
         else:
-            # Above ideal: smooth penalty for excessive complexity
-            distance = fk_grade - self.IDEAL_GRADE_MAX
-            penalty = min(0.15, distance * 0.02)
-            score -= penalty
+            if fk_grade < self.IDEAL_GRADE_MIN:
+                distance = self.IDEAL_GRADE_MIN - fk_grade
+                slope = 0.015
+            else:
+                distance = fk_grade - self.IDEAL_GRADE_MAX
+                slope = 0.012
+            if distance <= 2.0:
+                score += 0.15 - distance * 0.06
+            else:
+                score -= min(0.12, (distance - 2.0) * slope)
 
         # Sentence variety: reward varied structure (good writing)
         if sent_variance > 8:
             score += 0.1  # varied sentence structure
         elif sent_variance > 4:
             score += 0.05
-        elif sent_variance < 2 and len(sentences) > 5:
-            score -= 0.1  # monotonous sentence length (common in AI content)
+        elif sent_variance < 1.5 and len(sentences) > 5:
+            score -= 0.08  # monotonous sentence length (common in AI content)
 
         # Paragraph structure
         if has_structure:
