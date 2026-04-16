@@ -131,9 +131,17 @@ def _resolve_source(source: str, quiet: bool = False) -> tuple[str, str, dict | 
             raise SystemExit(1) from err
 
 
-def _report_to_dict(report, source: str | None = None, include_highlights: bool = False) -> dict:
+def _report_to_dict(
+    report,
+    source: str | None = None,
+    include_highlights: bool = False,
+    include_findings: bool = False,
+) -> dict:
     """Convert a QualityReport to a JSON-serializable dict."""
-    data = report.to_dict(include_highlights=include_highlights)
+    data = report.to_dict(
+        include_highlights=include_highlights,
+        include_findings=include_findings,
+    )
     if source is not None:
         data = {"source": source, **data}
     return data
@@ -194,6 +202,55 @@ def _display_highlights(report) -> None:
         console.print()
 
 
+_SEVERITY_STYLES = {
+    "error": "red bold",
+    "warn": "yellow",
+    "info": "cyan dim",
+}
+
+
+def _offset_to_line_col(text: str, offset: int) -> tuple[int, int]:
+    """Convert a char offset into 1-based (line, column)."""
+    if offset <= 0:
+        return (1, 1)
+    clipped = text[: min(offset, len(text))]
+    line = clipped.count("\n") + 1
+    last_nl = clipped.rfind("\n")
+    col = offset - last_nl if last_nl >= 0 else offset + 1
+    return (line, col)
+
+
+def _display_findings(report, text: str) -> None:
+    """Display findings as a document-ordered list with line/col refs.
+
+    Keeps the output terse and copy-paste friendly. Each finding gets one
+    line: severity, scorer:category, line:col, quoted snippet, reason.
+    """
+    findings = report.findings
+    if not findings:
+        console.print("[dim]No findings.[/dim]\n")
+        return
+
+    console.print("[bold]Findings:[/bold]")
+    for f in findings:
+        style = _SEVERITY_STYLES.get(f.severity, "white")
+        if f.span is not None:
+            line, col = _offset_to_line_col(text, f.span[0])
+            loc = f"{line}:{col}"
+        else:
+            loc = "doc"
+        tag = Text()
+        tag.append(f"  {f.severity:<5}", style=style)
+        tag.append(f"  {f.scorer}:{f.category:<16}", style="cyan")
+        tag.append(f"  {loc:<8}", style="dim")
+        snippet = f.snippet[:60].replace("\n", " ")
+        if snippet:
+            tag.append(f' "{snippet}"  ')
+        tag.append(f.reason, style="dim")
+        console.print(tag)
+    console.print()
+
+
 def _display_report_from_dict(data: dict, source: str = "") -> None:
     """Rich display of a cached report dict (same layout as _display_report)."""
     grade = data.get("grade", "?")
@@ -246,6 +303,7 @@ def _display_report_from_dict(data: dict, source: str = "") -> None:
 @click.option("--csv", "as_csv", is_flag=True, help="Output as CSV")
 @click.option("--paragraphs", is_flag=True, help="Show per-paragraph breakdown")
 @click.option("--highlights", is_flag=True, help="Show matched phrases per dimension")
+@click.option("--explain", "explain_mode", is_flag=True, help="Show structured findings")
 @click.option(
     "--profile", "-p", help="Scorer profile (default, technical, news, opinion)", default=None
 )
@@ -258,6 +316,7 @@ def score(
     as_csv: bool,
     paragraphs: bool,
     highlights: bool,
+    explain_mode: bool,
     profile: str | None,
     auto_profile: bool,
     no_cache: bool,
@@ -275,12 +334,12 @@ def score(
 
     label, text, metadata = _resolve_source(source)
 
-    # Cache lookup
+    # Cache lookup — bypass when --explain is set since findings aren't cached.
     from distill.cache import ScoreCache
 
     cache = ScoreCache()
     cached = None
-    if not no_cache:
+    if not no_cache and not explain_mode:
         cached = cache.get(text, profile=profile, scorer_names=scorer_names)
 
     if cached is not None:
@@ -300,9 +359,14 @@ def score(
         return
 
     pipeline = Pipeline(scorers=scorer_names, profile=profile, auto_profile=auto_profile)
-    report = pipeline.score(text, metadata=metadata, include_paragraphs=paragraphs)
+    report = pipeline.score(
+        text,
+        metadata=metadata,
+        include_paragraphs=paragraphs,
+        explain=explain_mode,
+    )
 
-    # Save to cache
+    # Save to cache (findings excluded — bypass read above ensures --explain skips cache)
     effective_scorer_names = scorer_names or [s.name for s in pipeline._scorers]
     report_dict = report.to_dict(include_highlights=True)
     cache.put(
@@ -321,7 +385,11 @@ def score(
     if as_json:
         import json
 
-        data = _report_to_dict(report, include_highlights=highlights)
+        data = _report_to_dict(
+            report,
+            include_highlights=highlights,
+            include_findings=explain_mode,
+        )
         if pipeline.detected_content_type:
             ct = pipeline.detected_content_type
             data["detected_type"] = ct.name
@@ -336,6 +404,8 @@ def score(
         _display_report(report, source=label)
         if highlights:
             _display_highlights(report)
+        if explain_mode:
+            _display_findings(report, text)
         if paragraphs:
             _display_paragraphs(report)
 

@@ -13,7 +13,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
+from distill.scorer import Finding, MatchHighlight, Scorer, ScoreResult, register
 
 # --- Pattern definitions ---
 
@@ -307,3 +307,42 @@ class SubstanceScorer(Scorer):
             quality = "Low substance density — mostly filler or generic content"
 
         return ". ".join([quality] + parts) + "."
+
+    def explain(
+        self,
+        text: str,
+        result: ScoreResult,
+        metadata: dict | None = None,
+    ) -> list[Finding]:
+        """Emit findings for filler phrases and vague hedges.
+
+        Reuses the filler/hedge MatchHighlights already collected by score().
+        Positive-signal highlights (specificity markers) are intentionally
+        omitted — explain() is problem-oriented in v1.
+        """
+        findings: list[Finding] = []
+        for h in result.highlights:
+            if h.category == "filler":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="filler_phrase",
+                        severity="warn",
+                        reason="Filler phrase adds no information",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+            elif h.category == "hedge":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="vague_hedge",
+                        severity="warn",
+                        reason="Vague hedge weakens claim without adding specificity",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+        findings.sort(key=lambda f: f.span[0] if f.span is not None else -1)
+        return findings

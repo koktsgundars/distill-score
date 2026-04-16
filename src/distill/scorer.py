@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import ClassVar, Literal
+
+Severity = Literal["info", "warn", "error"]
 
 
 @dataclass
@@ -21,6 +23,43 @@ class MatchHighlight:
 
 
 @dataclass
+class Finding:
+    """A problem identified in the text by a scorer.
+
+    Findings are the user-facing, revision-oriented view: what's wrong, where,
+    and why. Unlike MatchHighlight (a raw regex hit), a Finding carries a
+    stable machine-readable `category` and a human `reason`, plus a `severity`
+    so callers can filter or prioritize.
+    """
+
+    scorer: str  # which scorer emitted this
+    category: str  # stable machine key, e.g. "filler_phrase", "vague_hedge"
+    severity: Severity  # "info" | "warn" | "error"
+    reason: str  # short human message
+    span: tuple[int, int] | None  # (start, end) char offsets; None for doc-level
+    snippet: str = ""  # literal matched substring, for display/JSON
+    paragraph_index: int | None = None  # optional grouping hint
+    suggestion: str | None = None  # optional revision hint (deferred in v1)
+
+    def to_dict(self) -> dict:
+        """Convert to a JSON-serializable dict."""
+        d: dict = {
+            "scorer": self.scorer,
+            "category": self.category,
+            "severity": self.severity,
+            "reason": self.reason,
+            "snippet": self.snippet,
+        }
+        if self.span is not None:
+            d["span"] = [self.span[0], self.span[1]]
+        if self.paragraph_index is not None:
+            d["paragraph_index"] = self.paragraph_index
+        if self.suggestion is not None:
+            d["suggestion"] = self.suggestion
+        return d
+
+
+@dataclass
 class ScoreResult:
     """Result from a single scorer."""
 
@@ -31,6 +70,7 @@ class ScoreResult:
     highlights: list[MatchHighlight] = field(default_factory=list)
     ci_lower: float | None = None  # lower bound of confidence interval
     ci_upper: float | None = None  # upper bound of confidence interval
+    findings: list[Finding] = field(default_factory=list)
 
     def __post_init__(self):
         self.score = max(0.0, min(1.0, self.score))
@@ -39,7 +79,7 @@ class ScoreResult:
         if self.ci_upper is not None:
             self.ci_upper = max(0.0, min(1.0, self.ci_upper))
 
-    def to_dict(self) -> dict:
+    def to_dict(self, include_findings: bool = False) -> dict:
         """Convert to a JSON-serializable dict."""
         d: dict = {
             "name": self.name,
@@ -53,6 +93,8 @@ class ScoreResult:
             d["ci_upper"] = round(self.ci_upper, 3)
         if self.highlights:
             d["highlights"] = [h.to_dict() for h in self.highlights]
+        if include_findings and self.findings:
+            d["findings"] = [f.to_dict() for f in self.findings]
         return d
 
 
@@ -80,6 +122,27 @@ class Scorer(ABC):
             ScoreResult with a normalized score and optional details.
         """
         ...
+
+    def explain(
+        self,
+        text: str,
+        result: ScoreResult,
+        metadata: dict | None = None,
+    ) -> list[Finding]:
+        """Return structured findings explaining a scored result.
+
+        Findings are problem-oriented: which passages drag the score down and
+        why. Scorers that don't implement explain return an empty list.
+
+        Args:
+            text: The original text passed to score().
+            result: The ScoreResult already produced by score() for this text.
+            metadata: Optional context passed to score().
+
+        Returns:
+            List of Finding instances. Default implementation: empty list.
+        """
+        return []
 
 
 # --- Scorer Registry ---

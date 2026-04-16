@@ -15,7 +15,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
+from distill.scorer import Finding, MatchHighlight, Scorer, ScoreResult, register
 
 # --- Pattern definitions ---
 
@@ -129,16 +129,25 @@ def _find_matches(patterns: list[re.Pattern], text: str, category: str) -> list[
     return matches
 
 
-def _count_bare_prescriptives(text: str) -> int:
-    """Count 'you should/must/need to' without reasoning nearby (within 80 chars)."""
-    count = 0
+def _find_bare_prescriptives(text: str) -> list[tuple[int, int, str]]:
+    """Return (start, end, snippet) tuples for bare prescriptives.
+
+    Matches 'you should/must/need to' without reasoning (because/since/...)
+    in the surrounding 120-char window.
+    """
+    hits: list[tuple[int, int, str]] = []
     for m in BARE_PRESCRIPTIVE_RE.finditer(text):
         start = max(0, m.start() - 40)
         end = min(len(text), m.end() + 80)
         context = text[start:end]
         if not NEARBY_REASONING_RE.search(context):
-            count += 1
-    return count
+            hits.append((m.start(), m.end(), m.group()))
+    return hits
+
+
+def _count_bare_prescriptives(text: str) -> int:
+    """Count 'you should/must/need to' without reasoning nearby (within 80 chars)."""
+    return len(_find_bare_prescriptives(text))
 
 
 @register
@@ -271,3 +280,58 @@ class ArgumentScorer(Scorer):
             quality = "Weak argument structure — claims lack evidence or support"
 
         return ". ".join([quality] + parts) + "."
+
+    def explain(
+        self,
+        text: str,
+        result: ScoreResult,
+        metadata: dict | None = None,
+    ) -> list[Finding]:
+        """Emit findings for unsupported assertions, bare prescriptives,
+        and doc-level 'claims without evidence'."""
+        findings: list[Finding] = []
+
+        for h in result.highlights:
+            if h.category == "unsupported":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="unsupported_assertion",
+                        severity="warn",
+                        reason="Claim stated without supporting evidence",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+
+        for start, end, snippet in _find_bare_prescriptives(text):
+            findings.append(
+                Finding(
+                    scorer=self.name,
+                    category="bare_prescriptive",
+                    severity="warn",
+                    reason="'you should/must' without nearby reasoning",
+                    span=(start, end),
+                    snippet=snippet,
+                )
+            )
+
+        claim_count = result.details.get("claim_count", 0)
+        evidence_count = result.details.get("evidence_count", 0)
+        if claim_count > 3 and evidence_count == 0:
+            findings.append(
+                Finding(
+                    scorer=self.name,
+                    category="claims_without_evidence",
+                    severity="error",
+                    reason=(
+                        f"{claim_count} claims detected but no supporting evidence "
+                        "markers found in the document"
+                    ),
+                    span=None,
+                    snippet="",
+                )
+            )
+
+        findings.sort(key=lambda f: f.span[0] if f.span is not None else -1)
+        return findings

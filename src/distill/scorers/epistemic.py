@@ -16,7 +16,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
+from distill.scorer import Finding, MatchHighlight, Scorer, ScoreResult, register
 
 # Specific hedges — acknowledging concrete limitations (GOOD)
 SPECIFIC_QUALIFICATIONS = [
@@ -250,3 +250,26 @@ class EpistemicScorer(Scorer):
             quality = "Low epistemic quality — overconfident or lacking nuance"
 
         return ". ".join([quality] + parts) + "."
+
+    def explain(
+        self,
+        text: str,
+        result: ScoreResult,
+        metadata: dict | None = None,
+    ) -> list[Finding]:
+        """Emit findings for overconfidence markers."""
+        findings: list[Finding] = []
+        for h in result.highlights:
+            if h.category == "overconfidence":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="overconfidence",
+                        severity="warn",
+                        reason="Absolute claim without qualification",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+        findings.sort(key=lambda f: f.span[0] if f.span is not None else -1)
+        return findings

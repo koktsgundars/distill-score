@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Literal
 
-from distill.scorer import Scorer, ScoreResult, get_scorer, list_scorers
+from distill.scorer import Finding, Scorer, ScoreResult, get_scorer, list_scorers
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 _MIN_PARAGRAPH_WORDS = 30
@@ -106,11 +106,26 @@ class QualityReport:
         }
         return labels[self.grade]
 
-    def to_dict(self, include_highlights: bool = False) -> dict:
+    @property
+    def findings(self) -> list[Finding]:
+        """All findings across scorers, sorted in document order."""
+        collected: list[Finding] = []
+        for r in self.scores:
+            collected.extend(r.findings)
+        collected.sort(key=lambda f: f.span[0] if f.span is not None else -1)
+        return collected
+
+    def to_dict(
+        self,
+        include_highlights: bool = False,
+        include_findings: bool = False,
+    ) -> dict:
         """Convert to a JSON-serializable dict.
 
         Args:
             include_highlights: If True, include matched highlights per scorer.
+            include_findings: If True, include structured findings (a top-level
+                `findings` list in document order, plus per-dimension copies).
         """
         data: dict = {
             "overall_score": round(self.overall_score, 3),
@@ -131,7 +146,11 @@ class QualityReport:
                 dim["ci_upper"] = round(r.ci_upper, 3)
             if include_highlights and r.highlights:
                 dim["highlights"] = [h.to_dict() for h in r.highlights]
+            if include_findings and r.findings:
+                dim["findings"] = [f.to_dict() for f in r.findings]
             data["dimensions"][r.name] = dim
+        if include_findings:
+            data["findings"] = [f.to_dict() for f in self.findings]
         if self.paragraph_scores:
             data["paragraphs"] = [ps.to_dict() for ps in self.paragraph_scores]
             wps = self.weighted_paragraph_score
@@ -246,8 +265,17 @@ class Pipeline:
         text: str,
         metadata: dict | None = None,
         include_paragraphs: bool = False,
+        explain: bool = False,
     ) -> QualityReport:
-        """Run all configured scorers and produce a quality report."""
+        """Run all configured scorers and produce a quality report.
+
+        Args:
+            text: The content to score.
+            metadata: Optional metadata (url, title, etc.) passed to scorers.
+            include_paragraphs: If True, also score each paragraph individually.
+            explain: If True, populate each ScoreResult.findings by calling
+                scorer.explain() after scoring.
+        """
         if not text or not text.strip():
             return QualityReport(overall_score=0.0, text_length=0, word_count=0)
 
@@ -260,6 +288,8 @@ class Pipeline:
 
         for scorer in self._scorers:
             result = scorer.score(text, metadata)
+            if explain:
+                result.findings = scorer.explain(text, result, metadata)
             results.append(result)
 
             weight = self._weight_overrides.get(scorer.name, scorer.weight)

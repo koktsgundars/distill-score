@@ -16,7 +16,7 @@ import re
 from typing import ClassVar
 
 from distill.confidence import compute_confidence_interval
-from distill.scorer import MatchHighlight, Scorer, ScoreResult, register
+from distill.scorer import Finding, MatchHighlight, Scorer, ScoreResult, register
 
 # --- Pattern definitions ---
 
@@ -368,3 +368,37 @@ class ComplexityScorer(Scorer):
             quality = "Poor complexity calibration — unnecessarily complex or oversimplified"
 
         return f"{quality} ({', '.join(parts)})."
+
+    def explain(
+        self,
+        text: str,
+        result: ScoreResult,
+        metadata: dict | None = None,
+    ) -> list[Finding]:
+        """Emit findings for needless complexity and oversimplification."""
+        findings: list[Finding] = []
+        for h in result.highlights:
+            if h.category == "needless_complexity":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="needless_complexity",
+                        severity="warn",
+                        reason="Verbose phrasing — a simpler word would do",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+            elif h.category == "oversimplification":
+                findings.append(
+                    Finding(
+                        scorer=self.name,
+                        category="oversimplification",
+                        severity="warn",
+                        reason="Handwaves over detail",
+                        span=(h.position, h.position + len(h.text)),
+                        snippet=h.text,
+                    )
+                )
+        findings.sort(key=lambda f: f.span[0] if f.span is not None else -1)
+        return findings
