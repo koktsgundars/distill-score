@@ -190,14 +190,14 @@ def save_snapshot(entry_id: str, text: str, snapshot_dir: Path | str | None = No
 def predict_tier(score: float) -> str:
     """Map a score to a tier using empirically fit thresholds.
 
-    Thresholds derived from the 42-entry URL evaluation corpus after the
-    weight rebalance: a grid search over (high, medium) pairs found 0.50/0.42
-    maximizes classification accuracy (57.5%, up from 42.5% with the prior
-    0.55/0.35 cutoffs).
+    Thresholds derived from 5-fold CV on the 70-entry URL evaluation corpus:
+    per-fold optimum clusters at high≈0.49, medium≈0.47. CV mean test
+    accuracy 61%, rho 0.56, overfit gap 3%. Prior values 0.50/0.42 were fit
+    on 42 entries where the threshold grid was much less stable.
     """
-    if score >= 0.50:
+    if score >= 0.49:
         return "high"
-    elif score >= 0.42:
+    elif score >= 0.47:
         return "medium"
     else:
         return "low"

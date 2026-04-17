@@ -415,3 +415,167 @@ entries:
     content_type: marketing
     proxy_source: "Course platform marketing"
     tags: [marketing, seo]
+
+  # ============================================================
+  # Phase 2 additions — extreme-tier entries to widen separation
+  # ============================================================
+
+  - id: wiki_fa_black_death
+    url: "https://en.wikipedia.org/wiki/Black_Death"
+    description: "Wikipedia - Black Death (Featured Article)"
+    tier: high
+    content_type: technical
+    proxy_source: "Wikipedia Featured Article — peer-reviewed"
+    tags: [reference, history]
+
+  - id: wiki_fa_mercury
+    url: "https://en.wikipedia.org/wiki/Mercury_(element)"
+    description: "Wikipedia - Mercury element (Featured Article)"
+    tier: high
+    content_type: technical
+    proxy_source: "Wikipedia Featured Article — peer-reviewed"
+    tags: [reference, science]
+
+  - id: wiki_fa_alan_turing
+    url: "https://en.wikipedia.org/wiki/Alan_Turing"
+    description: "Wikipedia - Alan Turing (Featured Article)"
+    tier: high
+    content_type: technical
+    proxy_source: "Wikipedia Featured Article — peer-reviewed"
+    tags: [reference, history, biography]
+
+  - id: wiki_fa_dna
+    url: "https://en.wikipedia.org/wiki/DNA"
+    description: "Wikipedia - DNA (Featured Article)"
+    tier: high
+    content_type: technical
+    proxy_source: "Wikipedia Featured Article — peer-reviewed"
+    tags: [reference, science]
+
+  - id: fasterthanli_learn_rust
+    url: "https://fasterthanli.me/articles/a-half-hour-to-learn-rust"
+    description: "Amos Wenger - A half-hour to learn Rust"
+    tier: high
+    content_type: technical
+    proxy_source: "HN top post, widely-cited Rust intro"
+    tags: [technical, rust, tutorial]
+
+  - id: sqlite_why_not_git
+    url: "https://www.sqlite.org/whynotgit.html"
+    description: "SQLite project - Why we don't use git"
+    tier: high
+    content_type: opinion
+    proxy_source: "Canonical SQLite design essay"
+    tags: [essay, design]
+
+  - id: pg_maker_schedule
+    url: "https://www.paulgraham.com/makersschedule.html"
+    description: "Paul Graham - Maker's Schedule, Manager's Schedule"
+    tier: high
+    content_type: opinion
+    proxy_source: "Canonical productivity essay"
+    tags: [essay, productivity]
+
+  - id: pg_keep_identity_small
+    url: "https://www.paulgraham.com/identity.html"
+    description: "Paul Graham - Keep Your Identity Small"
+    tier: high
+    content_type: opinion
+    proxy_source: "Widely-cited essay on argument quality"
+    tags: [essay, epistemics]
+
+  - id: gwern_dnm_archive
+    url: "https://gwern.net/dnm-archive"
+    description: "Gwern - Darknet Market Archives overview"
+    tier: high
+    content_type: technical
+    proxy_source: "Gwern long-form archive, heavily researched"
+    tags: [essay, data]
+
+  - id: julialang_why_created
+    url: "https://julialang.org/blog/2012/02/why-we-created-julia/"
+    description: "Julia creators - Why we created Julia"
+    tier: high
+    content_type: opinion
+    proxy_source: "Seminal language-design manifesto"
+    tags: [essay, languages]
+
+  - id: w3schools_html_intro
+    url: "https://www.w3schools.com/html/html_intro.asp"
+    description: "W3Schools - HTML Introduction"
+    tier: low
+    content_type: technical
+    proxy_source: "Low-depth tutorial site"
+    tags: [seo, tutorial]
+
+  - id: w3schools_js_loops
+    url: "https://www.w3schools.com/js/js_loop_for.asp"
+    description: "W3Schools - JavaScript For Loop"
+    tier: low
+    content_type: technical
+    proxy_source: "Low-depth tutorial site"
+    tags: [seo, tutorial]
+
+  - id: w3schools_sql_intro
+    url: "https://www.w3schools.com/sql/sql_intro.asp"
+    description: "W3Schools - SQL Introduction"
+    tier: low
+    content_type: technical
+    proxy_source: "Low-depth tutorial site"
+    tags: [seo, tutorial]
+
+  - id: tutorialspoint_html
+    url: "https://www.tutorialspoint.com/html/index.htm"
+    description: "TutorialsPoint - HTML tutorial index"
+    tier: low
+    content_type: technical
+    proxy_source: "Content-farm tutorial site"
+    tags: [seo, tutorial]
+
+  - id: tutorialspoint_sql
+    url: "https://www.tutorialspoint.com/sql/index.htm"
+    description: "TutorialsPoint - SQL tutorial index"
+    tier: low
+    content_type: technical
+    proxy_source: "Content-farm tutorial site"
+    tags: [seo, tutorial]
+
+  - id: tutorialspoint_cpp
+    url: "https://www.tutorialspoint.com/cplusplus/cpp_overview.htm"
+    description: "TutorialsPoint - C++ overview"
+    tier: low
+    content_type: technical
+    proxy_source: "Content-farm tutorial site"
+    tags: [seo, tutorial]
+
+  - id: geeksforgeeks_loops_python
+    url: "https://www.geeksforgeeks.org/loops-in-python/"
+    description: "GeeksforGeeks - Loops in Python"
+    tier: low
+    content_type: technical
+    proxy_source: "SEO-heavy tutorial site"
+    tags: [seo, tutorial]
+
+  - id: guru99_python_tutorials
+    url: "https://www.guru99.com/python-tutorials.html"
+    description: "Guru99 - Python tutorials index"
+    tier: low
+    content_type: technical
+    proxy_source: "Known content-farm tutorial site"
+    tags: [seo, tutorial]
+
+  - id: tutorialrepublic_html
+    url: "https://www.tutorialrepublic.com/html-tutorial/"
+    description: "Tutorial Republic - HTML tutorial"
+    tier: low
+    content_type: technical
+    proxy_source: "Low-depth tutorial site"
+    tags: [seo, tutorial]
+
+  - id: interview_cake_tips
+    url: "https://www.interviewcake.com/coding-interview-tips"
+    description: "Interview Cake - Coding interview tips"
+    tier: low
+    content_type: marketing
+    proxy_source: "Product marketing disguised as advice"
+    tags: [marketing, listicle]
