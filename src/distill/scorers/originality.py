@@ -119,6 +119,73 @@ def _split_paragraphs(text: str, min_words: int = 15) -> list[str]:
     return [p.strip() for p in paragraphs if len(p.strip().split()) >= min_words]
 
 
+# Common function words — deliberately shorter than a production stoplist.
+# Removing them before measuring vocabulary richness keeps the signal about
+# content words, not about how much a piece uses "the" or "is".
+# fmt: off
+_FUNCTION_WORDS = frozenset({
+    "the", "of", "and", "to", "a", "in", "is", "that", "it", "was", "for",
+    "on", "with", "as", "are", "by", "this", "be", "from", "at", "not",
+    "they", "but", "were", "have", "has", "had", "or", "which", "been",
+    "being", "more", "one", "all", "her", "an", "their", "said", "some",
+    "what", "about", "when", "if", "who", "can", "your", "will", "no",
+    "do", "so", "out", "also", "into", "only", "than", "our", "up", "over",
+    "should", "could", "would", "there", "its", "own", "where", "such",
+    "any", "both", "we", "us", "you", "he", "she", "them", "me", "my", "i",
+    "him", "each", "same", "like", "just", "very", "too", "now", "then",
+    "still", "well", "back", "much", "most", "even", "may", "these",
+    "those", "through", "since", "before", "while", "because", "how",
+    "after", "made", "here",
+})
+# fmt: on
+
+_VOCAB_WORD_RE = re.compile(r"\b[a-z]{3,}\b")
+
+
+def _vocabulary_richness(text: str) -> float | None:
+    """Heap's-Law adjusted type-token ratio on content words.
+
+    Measures whether the text uses a wider vocabulary than is typical for
+    its length. Low-tier content (tutorials, listicles, AI slop) is
+    repetitive and hits a low ratio; high-tier long-form writing varies
+    vocabulary substantially. Returns None when the text is too short to
+    be meaningful. The returned value is approximately:
+
+        actual_unique_content_words / (7 * N^0.55)
+
+    where N is the content-word count. A ratio of 1.0 is "typical";
+    >1.5 is notably rich, <0.8 is notably thin.
+    """
+    words = [w for w in _VOCAB_WORD_RE.findall(text.lower()) if w not in _FUNCTION_WORDS]
+    n = len(words)
+    # Heap's Law corrections are unreliable on short text. The 200-content-word
+    # threshold keeps calibration-corpus entries (~150 words total) falling
+    # through to the pattern-based composite, where they were well-calibrated.
+    if n < 200:
+        return None
+    unique = len({w for w in words})
+    expected = 7 * (n**0.55)
+    return unique / expected if expected > 0 else 0.0
+
+
+def _vocab_richness_to_score(heaps_ratio: float | None) -> float | None:
+    """Map a vocabulary-richness value to a 0–1 score.
+
+    Piecewise linear with an explicit dead zone near "typical" (1.0) so
+    small variations don't swing the score. Tuned against the URL
+    evaluation corpus where high-tier means 1.93 and low-tier 1.31.
+    """
+    if heaps_ratio is None:
+        return None
+    if heaps_ratio < 0.9:
+        return max(0.0, 0.2 * (heaps_ratio / 0.9))  # 0 → 0.2 as ratio 0→0.9
+    if heaps_ratio < 1.3:
+        return 0.2 + 0.3 * ((heaps_ratio - 0.9) / 0.4)  # 0.2 → 0.5
+    if heaps_ratio < 1.8:
+        return 0.5 + 0.4 * ((heaps_ratio - 1.3) / 0.5)  # 0.5 → 0.9
+    return min(1.0, 0.9 + 0.1 * ((heaps_ratio - 1.8) / 0.5))  # 0.9 → 1.0
+
+
 def _diversity_to_score(diversity: float) -> float:
     """Map semantic diversity value to a 0-1 quality score.
 
@@ -141,7 +208,7 @@ class OriginalityScorer(Scorer):
 
     name: ClassVar[str] = "originality"
     description: ClassVar[str] = "Originality: novel claims and diverse ideas vs common knowledge"
-    weight: ClassVar[float] = 0.3
+    weight: ClassVar[float] = 0.5
 
     def __init__(self) -> None:
         self._model = None
@@ -164,6 +231,10 @@ class OriginalityScorer(Scorer):
                 explanation="Too short to assess originality.",
                 details={"word_count": word_count},
             )
+
+        # --- Vocabulary richness (heaps-law adjusted, content words only) ---
+        heaps_ratio = _vocabulary_richness(text)
+        vocab_score = _vocab_richness_to_score(heaps_ratio)
 
         # --- Claim density ---
         experience_count = _count(_experience_re, text)
@@ -236,11 +307,25 @@ class OriginalityScorer(Scorer):
                 diversity_score = _diversity_to_score(diversity_value)
 
         # --- Composite score ---
-        if diversity_score is not None:
-            # ML mode: 40% diversity, 35% claims, 25% attribution
+        # Vocabulary-richness is the strongest measured discriminator for this
+        # scorer on the URL corpus (h-l +0.61 on raw heaps_ratio). When
+        # available it takes a meaningful share of the blend; otherwise we
+        # fall back to the pattern-based signals alone.
+        if diversity_score is not None and vocab_score is not None:
+            # ML mode + vocab: 30% diversity, 35% vocab, 20% claims, 15% attribution
+            final_score = (
+                diversity_score * 0.30
+                + vocab_score * 0.35
+                + claim_score * 0.20
+                + attribution_score * 0.15
+            )
+        elif diversity_score is not None:
             final_score = diversity_score * 0.40 + claim_score * 0.35 + attribution_score * 0.25
+        elif vocab_score is not None:
+            # Heuristic + vocab: 45% vocab, 35% claims, 20% attribution
+            final_score = vocab_score * 0.45 + claim_score * 0.35 + attribution_score * 0.20
         else:
-            # Heuristic-only: 60% claims, 40% attribution
+            # Heuristic-only (short text): 60% claims, 40% attribution
             final_score = claim_score * 0.60 + attribution_score * 0.40
 
         final_score = max(0.0, min(1.0, final_score))
@@ -285,6 +370,10 @@ class OriginalityScorer(Scorer):
         if diversity_value is not None and diversity_score is not None:
             details["semantic_diversity"] = round(diversity_value, 3)
             details["diversity_score"] = round(diversity_score, 3)
+
+        if heaps_ratio is not None and vocab_score is not None:
+            details["vocab_heaps_ratio"] = round(heaps_ratio, 3)
+            details["vocab_score"] = round(vocab_score, 3)
 
         signal_count = experience_count + novel_count + common_count + attribution_count
         signal_types = 5 if diversity_score is not None else 4
