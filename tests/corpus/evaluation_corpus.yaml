@@ -80,13 +80,13 @@ entries:
     proxy_source: "Canonical software essay"
     tags: [essay, software-engineering]
 
-  - id: joel_strategy_letter
-    url: "https://www.joelonsoftware.com/2001/06/12/strategy-letter-v/"
-    description: "Joel Spolsky - Strategy Letter V"
+  - id: hillelwayne_formal_methods
+    url: "https://www.hillelwayne.com/post/why-dont-people-use-formal-methods/"
+    description: "Hillel Wayne - Why don't people use formal methods?"
     tier: high
     content_type: opinion
-    proxy_source: "Canonical software essay"
-    tags: [essay, business]
+    proxy_source: "Widely-shared rigor-oriented essay"
+    tags: [essay, formal-methods]
 
   - id: stripe_api_design
     url: "https://stripe.com/blog/payment-api-design"
@@ -152,12 +152,12 @@ entries:
     proxy_source: "Top engineering blog, data-heavy"
     tags: [technical, databases, scale]
 
-  - id: rachelbythebay_latency
-    url: "https://rachelbythebay.com/w/2014/06/14/time/"
-    description: "Rachel by the Bay - Time, clock, and ordering"
+  - id: nelhage_suffix_arrays
+    url: "https://blog.nelhage.com/2015/02/regular-expression-search-with-suffix-arrays/"
+    description: "Nelson Elhage - Regular expression search with suffix arrays"
     tier: high
     content_type: technical
-    proxy_source: "Known high-quality practitioner blog"
+    proxy_source: "HN top post, practitioner deep-dive"
     tags: [technical, systems]
 
   - id: brandur_soft_deletion
@@ -188,13 +188,13 @@ entries:
     proxy_source: "Tutorial site, beginner level"
     tags: [tutorial, git]
 
-  - id: medium_docker_best_practices
-    url: "https://medium.com/@nodepractices/docker-best-practices-with-node-js-e044b78d8f67"
-    description: "Medium - Docker best practices with Node.js"
+  - id: mdn_fetch_api
+    url: "https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch"
+    description: "MDN - Using the Fetch API"
     tier: medium
     content_type: technical
-    proxy_source: "Medium post, moderate engagement"
-    tags: [tutorial, docker]
+    proxy_source: "Reference docs, competent but formulaic"
+    tags: [tutorial, reference, web]
 
   - id: digitalocean_nginx
     url: "https://www.digitalocean.com/community/tutorials/how-to-install-nginx-on-ubuntu-20-04"
@@ -260,21 +260,21 @@ entries:
     proxy_source: "Industry publication, useful checklist"
     tags: [technical, performance]
 
-  - id: twilio_blog_webhooks
-    url: "https://www.twilio.com/blog/what-is-a-webhook"
-    description: "Twilio - What is a Webhook?"
+  - id: k8s_pods_concept
+    url: "https://kubernetes.io/docs/concepts/workloads/pods/"
+    description: "Kubernetes docs - Pods concept"
     tier: medium
     content_type: technical
-    proxy_source: "Corporate blog, introductory"
-    tags: [tutorial, basics]
+    proxy_source: "Official project docs, reference-style"
+    tags: [tutorial, reference, kubernetes]
 
-  - id: stackoverflow_blog_best_practices
-    url: "https://stackoverflow.blog/2020/07/01/nobody-has-to-lose/"
-    description: "Stack Overflow Blog - How to be a good developer"
+  - id: webdev_core_web_vitals
+    url: "https://web.dev/articles/vitals"
+    description: "web.dev - Core Web Vitals"
     tier: medium
-    content_type: opinion
-    proxy_source: "Corporate blog, editorial"
-    tags: [opinion, career]
+    content_type: technical
+    proxy_source: "Google dev platform, competent but spec-like"
+    tags: [tutorial, reference, performance]
 
   - id: mozilla_js_closures
     url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures"
@@ -312,12 +312,12 @@ entries:
     proxy_source: "Known content farm"
     tags: [seo, tutorial]
 
-  - id: javatpoint_python
-    url: "https://www.javatpoint.com/python-tutorial"
-    description: "Javatpoint - Python Tutorial"
+  - id: w3schools_python_intro
+    url: "https://www.w3schools.com/python/python_intro.asp"
+    description: "W3Schools - Python Introduction"
     tier: low
     content_type: technical
-    proxy_source: "Known content farm"
+    proxy_source: "Known low-depth tutorial site"
     tags: [seo, tutorial]
 
   - id: simplilearn_devops
@@ -360,12 +360,12 @@ entries:
     proxy_source: "Minimal content, SEO-optimized"
     tags: [seo, basics]
 
-  - id: businessinsider_tech_list
-    url: "https://www.businessinsider.com/best-programming-languages-to-learn"
-    description: "Business Insider - Best Programming Languages to Learn"
+  - id: zapier_productivity_apps
+    url: "https://zapier.com/blog/best-productivity-apps/"
+    description: "Zapier - Best productivity apps"
     tier: low
     content_type: marketing
-    proxy_source: "Listicle, no technical depth"
+    proxy_source: "SEO listicle with affiliate intent"
     tags: [listicle, seo]
 
   - id: makeuseof_linux
@@ -392,13 +392,13 @@ entries:
     proxy_source: "Hosting company SEO content"
     tags: [marketing, seo]
 
-  - id: indeed_developer_skills
-    url: "https://www.indeed.com/career-advice/resumes-cover-letters/technical-skills-for-resume"
-    description: "Indeed - Technical Skills for Resume"
+  - id: makeuseof_python_uses
+    url: "https://www.makeuseof.com/tag/reasons-python-programming-not-useless/"
+    description: "MakeUseOf - Reasons Python programming is not useless"
     tier: low
     content_type: marketing
-    proxy_source: "Job site filler content"
-    tags: [seo, career]
+    proxy_source: "Clickbait tech listicle"
+    tags: [listicle, seo]
 
   - id: hubspot_what_is_api
     url: "https://blog.hubspot.com/website/application-programming-interface-api"
