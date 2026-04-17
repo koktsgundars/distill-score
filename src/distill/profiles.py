@@ -41,18 +41,24 @@ def list_profiles() -> dict[str, str]:
 
 # --- Built-in profiles ---
 
+# Profile weights were re-fit on the 70-entry URL evaluation corpus. Per-type
+# tilts preserved (epistemic/argument for opinion, authority for news, substance
+# for technical) but magnitudes reflect the measured discrimination under the
+# current scorer definitions — readability/originality/complexity discriminate
+# poorly on real content and are kept at low weight across profiles.
+
 register_profile(
     ScorerProfile(
         name="default",
-        description="General-purpose scoring (balanced weights)",
+        description="General-purpose scoring — matches class-var defaults",
         weights={
-            "substance": 1.5,
+            "substance": 2.0,
+            "argument": 1.0,
+            "authority": 1.0,
             "epistemic": 1.0,
-            "readability": 0.75,
-            "originality": 0.75,
-            "authority": 0.5,
-            "argument": 0.75,
-            "complexity": 0.5,
+            "originality": 0.3,
+            "readability": 0.3,
+            "complexity": 0.3,
         },
     )
 )
@@ -60,15 +66,15 @@ register_profile(
 register_profile(
     ScorerProfile(
         name="technical",
-        description="Docs, tutorials, engineering posts — substance matters most",
+        description="Docs, tutorials, engineering posts — substance and authority matter most",
         weights={
-            "substance": 2.0,
-            "epistemic": 0.5,
-            "readability": 1.0,
-            "originality": 1.0,
-            "authority": 0.5,
-            "argument": 0.5,
-            "complexity": 0.75,
+            "substance": 2.5,
+            "argument": 0.8,
+            "authority": 1.2,
+            "epistemic": 0.8,
+            "originality": 0.2,
+            "readability": 0.3,
+            "complexity": 0.3,
         },
     )
 )
@@ -76,15 +82,15 @@ register_profile(
 register_profile(
     ScorerProfile(
         name="news",
-        description="Journalism — epistemic honesty is critical",
+        description="Journalism — authority and epistemic honesty are critical",
         weights={
-            "substance": 1.0,
-            "epistemic": 2.0,
-            "readability": 1.0,
-            "originality": 0.5,
-            "authority": 1.5,
-            "argument": 0.75,
-            "complexity": 0.25,
+            "substance": 1.5,
+            "argument": 1.0,
+            "authority": 2.0,
+            "epistemic": 1.5,
+            "originality": 0.2,
+            "readability": 0.3,
+            "complexity": 0.3,
         },
     )
 )
@@ -92,15 +98,15 @@ register_profile(
 register_profile(
     ScorerProfile(
         name="opinion",
-        description="Essays, editorials — reasoning and nuance matter",
+        description="Essays, editorials — argument and epistemic reasoning drive the score",
         weights={
-            "substance": 1.0,
-            "epistemic": 1.5,
-            "readability": 1.0,
-            "originality": 1.5,
-            "authority": 0.25,
+            "substance": 1.5,
             "argument": 1.5,
-            "complexity": 0.5,
+            "authority": 0.5,
+            "epistemic": 1.5,
+            "originality": 0.5,
+            "readability": 0.3,
+            "complexity": 0.3,
         },
     )
 )
