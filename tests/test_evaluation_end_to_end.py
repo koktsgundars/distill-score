@@ -12,7 +12,16 @@ from __future__ import annotations
 
 import pytest
 
-from distill.evaluate import DEFAULT_SNAPSHOT_DIR, load_corpus, load_snapshot, run_evaluation
+from distill.evaluate import (
+    DEFAULT_SNAPSHOT_DIR,
+    ScoredEntry,
+    cross_validate_thresholds,
+    load_corpus,
+    load_snapshot,
+    predict_tier,
+    run_evaluation,
+)
+from distill.pipeline import Pipeline
 
 # Minimum fraction of corpus entries with snapshots for the test to run.
 # Below this, results would be too noisy to interpret.
@@ -22,6 +31,33 @@ MIN_COVERAGE = 0.6
 # noisy real-world content (author edits, extractor failures) doesn't break
 # CI on trivial changes. Tighten as the scorer improves.
 RHO_FLOOR = 0.30
+
+# Honest generalization floors from K-fold CV. These are deliberately looser
+# than the fit-on-all numbers: on a 40-entry corpus an 8-entry fold swings ±12%
+# accuracy from a single misclassification, and mean test rho reflects true
+# generalization rather than overfit threshold selection.
+CV_RHO_FLOOR = 0.25
+CV_ACC_FLOOR = 0.40
+
+
+def _score_all_available() -> list[ScoredEntry]:
+    """Score every corpus entry that has a snapshot. Returns ScoredEntry list."""
+    pipeline = Pipeline()
+    out: list[ScoredEntry] = []
+    for entry in load_corpus():
+        text = load_snapshot(entry.id)
+        if text is None:
+            continue
+        report = pipeline.score(text, metadata={"url": entry.url})
+        out.append(
+            ScoredEntry(
+                entry=entry,
+                overall_score=report.overall_score,
+                grade=report.grade,
+                predicted_tier=predict_tier(report.overall_score),
+            )
+        )
+    return out
 
 
 @pytest.mark.evaluation
@@ -73,6 +109,34 @@ def test_high_tier_beats_low_tier_on_average() -> None:
     assert tier_means["high"] > tier_means["low"] + 0.05, (
         f"high tier mean {tier_means['high']:.3f} should exceed low tier mean "
         f"{tier_means['low']:.3f} by at least 0.05"
+    )
+
+
+@pytest.mark.evaluation
+def test_cross_validated_generalization() -> None:
+    """5-fold CV to measure honest generalization, not the overfit curve.
+
+    Thresholds are grid-fit per fold on the train split and evaluated on the
+    held-out split. The pipeline weights themselves are held fixed — they're
+    a design choice, not per-fold tunable parameters. Floors are loose
+    because 8-entry folds are inherently noisy.
+    """
+    entries = load_corpus()
+    covered = sum(1 for e in entries if load_snapshot(e.id) is not None)
+    if covered / len(entries) < MIN_COVERAGE:
+        pytest.skip(f"Insufficient snapshots ({covered}/{len(entries)})")
+
+    scored = _score_all_available()
+    cv = cross_validate_thresholds(scored, k=5)
+
+    assert cv.mean_test_rho >= CV_RHO_FLOOR, (
+        f"CV mean test rho {cv.mean_test_rho:.3f} below floor {CV_RHO_FLOOR} "
+        f"(per-fold: {[round(r, 3) for r in cv.fold_test_rhos]})"
+    )
+    assert cv.mean_test_accuracy >= CV_ACC_FLOOR, (
+        f"CV mean test accuracy {cv.mean_test_accuracy:.2%} below floor "
+        f"{CV_ACC_FLOOR:.0%} (per-fold: "
+        f"{[f'{a:.0%}' for a in cv.fold_test_accuracies]})"
     )
 
 

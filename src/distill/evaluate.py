@@ -318,6 +318,129 @@ def compute_content_type_stats(scored: list[ScoredEntry]) -> list[ContentTypeSta
     return stats
 
 
+@dataclass
+class CrossValidationResult:
+    """Aggregate K-fold cross-validation metrics.
+
+    Separates the threshold-fitting step from the evaluation step across
+    folds, so reported accuracy and rho reflect generalization rather than
+    the overfit curve of fit-and-test-on-all.
+    """
+
+    k: int
+    n_entries: int
+    fold_test_accuracies: list[float]
+    fold_test_rhos: list[float]
+    fold_thresholds: list[tuple[float, float]]  # (high, medium) per fold
+    mean_test_accuracy: float
+    std_test_accuracy: float
+    mean_test_rho: float
+    overfit_gap: float  # (mean train acc) - (mean test acc)
+
+
+def _best_thresholds(entries: list[ScoredEntry]) -> tuple[float, float, float]:
+    """Grid-search best (high, medium) thresholds on these entries.
+
+    Returns (accuracy, high_threshold, medium_threshold). Small 0.01 grid —
+    the corpus is small enough that finer search is not meaningful.
+    """
+
+    def acc(ht: float, mt: float) -> float:
+        correct = 0
+        for s in entries:
+            if s.overall_score >= ht:
+                pred = "high"
+            elif s.overall_score >= mt:
+                pred = "medium"
+            else:
+                pred = "low"
+            if pred == s.entry.tier:
+                correct += 1
+        return correct / len(entries) if entries else 0.0
+
+    best_acc, best_ht, best_mt = 0.0, 0.50, 0.42
+    for ht_i in range(40, 70):
+        ht = round(ht_i * 0.01, 2)
+        for mt_i in range(20, ht_i):
+            mt = round(mt_i * 0.01, 2)
+            a = acc(ht, mt)
+            if a > best_acc:
+                best_acc, best_ht, best_mt = a, ht, mt
+    return best_acc, best_ht, best_mt
+
+
+def _accuracy_with_thresholds(entries: list[ScoredEntry], ht: float, mt: float) -> float:
+    correct = 0
+    for s in entries:
+        if s.overall_score >= ht:
+            pred = "high"
+        elif s.overall_score >= mt:
+            pred = "medium"
+        else:
+            pred = "low"
+        if pred == s.entry.tier:
+            correct += 1
+    return correct / len(entries) if entries else 0.0
+
+
+def cross_validate_thresholds(
+    scored: list[ScoredEntry],
+    k: int = 5,
+    seed: int = 42,
+) -> CrossValidationResult:
+    """K-fold CV of the predict_tier thresholds.
+
+    For each fold: grid-fit (high, medium) on the train split, then measure
+    accuracy and Spearman rho on the held-out split. Aggregates mean/std
+    across folds. Reveals the overfit gap between fit-on-all metrics and
+    honest generalization.
+    """
+    import random
+
+    if len(scored) < k:
+        raise ValueError(f"Need at least {k} scored entries for {k}-fold CV")
+
+    rng = random.Random(seed)
+    idx = list(range(len(scored)))
+    rng.shuffle(idx)
+    folds = [idx[i::k] for i in range(k)]
+
+    test_accs: list[float] = []
+    test_rhos: list[float] = []
+    train_accs: list[float] = []
+    fold_thresh: list[tuple[float, float]] = []
+
+    for test_idx in folds:
+        test = [scored[i] for i in test_idx]
+        train = [scored[i] for i in idx if i not in set(test_idx)]
+        _, ht, mt = _best_thresholds(train)
+        train_accs.append(_accuracy_with_thresholds(train, ht, mt))
+        test_accs.append(_accuracy_with_thresholds(test, ht, mt))
+        tier_vals = [float(TIER_NUMERIC[s.entry.tier]) for s in test]
+        score_vals = [s.overall_score for s in test]
+        rho, _ = spearman_rho(tier_vals, score_vals)
+        test_rhos.append(rho)
+        fold_thresh.append((ht, mt))
+
+    mean_test_acc = sum(test_accs) / k
+    mean_test_rho = sum(test_rhos) / k
+    mean_train_acc = sum(train_accs) / k
+    var_test_acc = sum((a - mean_test_acc) ** 2 for a in test_accs) / k
+    std_test_acc = var_test_acc**0.5
+
+    return CrossValidationResult(
+        k=k,
+        n_entries=len(scored),
+        fold_test_accuracies=test_accs,
+        fold_test_rhos=test_rhos,
+        fold_thresholds=fold_thresh,
+        mean_test_accuracy=mean_test_acc,
+        std_test_accuracy=std_test_acc,
+        mean_test_rho=mean_test_rho,
+        overfit_gap=mean_train_acc - mean_test_acc,
+    )
+
+
 def compute_metrics(
     scored: list[ScoredEntry],
     rho_threshold: float = 0.70,
